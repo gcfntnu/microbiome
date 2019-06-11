@@ -1,0 +1,528 @@
+#-*- mode: snakemake -*-
+"""Snakemake rules for qiime2 workflow of 16S micriobiome data
+"""
+QIIME2_INTERIM = join(INTERIM_DIR, 'qiime2')
+QIIME2_PROCESSED = join(PROCESSED_DIR, 'qiime2')
+
+QIIME2_IMAGE = 'docker://qiime2/core:{}'.format(config['qiime2']['version'])
+
+include:
+    'qiime2.db'
+
+rule qiime2_manifest:
+    input:
+        'config.yaml'
+    output:
+        'qiime2_manifest.csv'
+    params:
+        script = srcdir('scripts/make_manifest_qiime2.py')
+    threads:
+        1
+    shell:
+        '{params.script} {input} {output}'
+
+rule qiime2_import:
+    input:
+        'qiime2_manifest.csv'
+    output:
+        temp(join(QIIME2_INTERIM, 'artifacts', 'all.qza'))
+    singularity:
+        QIIME2_IMAGE
+    params:
+        source_format = 'PairedEndFastqManifestPhred33',
+        type = 'SampleData[PairedEndSequencesWithQuality]',
+    threads:
+        1
+    shell:
+        'qiime tools import '
+        '--type {params.type} '
+        '--input-path {input} '
+        '--output-path {output} '
+        '--source-format {params.source_format} '
+
+rule qiime2_quality_filter:
+    input:
+        'data/interim/qiime2/artifacts/all.qza'
+    output:
+        filtered = temp('data/interim/qiime2/filtered/filtered.qza'),
+        stats = temp('data/interim/qiime2/filtered/stats.qza')
+    singularity:
+        QIIME2_IMAGE
+    shell:
+        'qiime quality-filter q-score ' 
+        '--i-demux {input} '
+        '--o-filtered-sequences {output.filtered} '
+        '--o-filter-stats {output.stats}'
+
+           
+rule qiime2_deblur:
+    input:
+        rules.qiime2_quality_filter.output.filtered
+    output:
+        rep_seqs = 'data/processed/qiime2/deblur/rep-seqs.qza',
+        table = 'data/processed/qiime2/deblur/table.qza',
+        stats = 'data/processed/qiime2/deblur/stats.qza'
+    singularity:
+        QIIME2_IMAGE
+    params:
+        trim_length = 250
+    threads:
+        48
+    shell:
+        'qiime deblur denoise-16S '
+        '--p-trim-length {params.trim_length} '
+        '--p-sample-stats '
+        '--i-demultiplexed-seqs {input} '
+        '--o-representative-sequences {output.rep_seqs} '
+        '--o-table {output.table} '
+        '--o-stats {output.stats} '     
+        '--p-jobs-to-start {threads}'
+
+
+rule qiime2_deblur_vis_stats:
+    input:
+        '{file}.qza'
+    output:
+        '{file}-deblur-vis.qzv'
+    singularity:
+        QIIME2_IMAGE
+    threads:
+        1
+    shell:
+        'qiime deblur visualize-stats '
+        '--i-deblur-stats {input} '
+        '--o-visualization {output} '
+    
+
+rule qiime2_meta_tabulate:
+    input:
+        '{file}.qza'
+    output:
+        '{file}-metatab.qzv'
+    conda:
+        'envs/qiime2.yml'
+    threads:
+        1
+    shell:
+        'qiime metadata tabulate '
+        '--m-input-file {input} '
+        '--o-visualization {output}'
+
+rule qiime2_dada2:
+    input:
+        rules.qiime2_import.output
+    output:
+        rep_seq = 'data/processed/qiime2/dada2/rep-seqs.qza',
+        stats = 'data/processed/qiime2/dada2/stats.qza',
+        table = 'data/processed/qiime2/dada2/table.qza'
+    singularity:
+        QIIME2_IMAGE
+    threads:
+        48
+    params:
+        trim_f = 14,
+        trim_r = 10,
+        trunc_f = 270,
+        trunc_r = 250
+    shell:
+        'qiime dada2 denoise-paired '
+        '--i-demultiplexed-seqs {input} '
+        '--p-trim-left-f {params.trim_f} '
+        '--p-trim-left-r {params.trim_r} '
+        '--p-trunc-len-f {params.trunc_f} '
+        '--p-trunc-len-r {params.trunc_r} '
+        '--o-table {output.table} '
+        '--o-representative-sequences {output.rep_seq} '
+        '--o-denoising-stats {output.stats} '
+        '--p-n-threads {threads} '
+
+
+rule qiime2_sample_info:
+    input:
+        'data/processed/sample_info.txt'
+    output:
+        temp('data/interim/qiime2/sample_info.txt')
+    threads:
+        1
+    shell:
+        'cp {input} {output} && '
+        'sed -i -e "s/Sample_ID/sample-id/g" {output}'
+
+rule qiime2_feature_table_summarize:
+    input:
+        sample_info = 'data/interim/qiime2/sample_info.txt',
+        table = '{file}.qza'
+    output:
+        '{file}-feature-summary.qzv'
+    conda:
+        'envs/qiime2.yml'    
+    threads:
+        1
+    shell:
+        'qiime feature-table summarize '
+        '--i-table {input.table} '
+        '--o-visualization {output} '
+        '--m-sample-metadata-file {input.sample_info}'
+
+
+rule qiime2_feature_table_tabulate:
+    input:
+        '{file}.qza'
+    output:
+        '{file}-feature-tabulated.qzv'
+    conda:
+        'envs/qiime2.yml'    
+    threads:
+        1
+    shell:
+        'qiime feature-table tabulate-seqs '
+        '--i-data {input} '
+        '--o-visualization {output} '
+
+rule qiime2_taxa:
+    input:
+        unpack(get_qiime2_classifier),
+        rep_seq = 'data/processed/qiime2/{pipeline}/rep-seqs.qza'
+    output:
+        'data/processed/qiime2/{pipeline}/{db}/taxonomy.qza'
+    conda:
+        'envs/qiime2.yml'
+    threads:
+        48
+    shell:
+        'qiime feature-classifier classify-sklearn '
+        '--i-classifier {input.classifier} '
+        '--i-reads {input.rep_seq} '
+        '--o-classification {output} '
+        '--p-n-jobs {threads}'
+
+rule qiime2_taxa_barplot:
+    input:
+        table = 'data/processed/qiime2/{pipeline}/table.qza',
+        taxa = 'data/processed/qiime2/{pipeline}/{db}/taxonomy.qza',
+        sample_info = 'data/interim/qiime2/sample_info.txt'
+    output:
+        'data/processed/qiime2/{pipeline}/{db}/taxonomy.qzv'
+    conda:
+        'envs/qiime2.yml'
+    threads:
+        1
+    shell:
+        'qiime taxa barplot '
+        '--i-table {input.table} '
+        '--i-taxonomy {input.taxa} '
+        '--m-metadata-file {input.sample_info} '
+        '--o-visualization {output} '
+
+rule qiime2_pseudocount:
+    input:
+        'data/processed/qiime2/{pipeline}/table.qza'
+    output:
+        'data/processed/qiime2/{pipeline}/gneiss/composition.qza'
+    conda:
+        'envs/qiime2.yml'
+    threads:
+        1
+    params:
+        count = 1
+    shell:
+        'qiime gneiss add-pseudocount '
+        '--i-table {input} '
+        '--p-pseudocount {params.count} '
+        '--o-composition-table {output}'
+
+rule qiime2_correlation_cluster:
+    input:
+        'data/processed/qiime2/{pipeline}/gneiss/composition.qza'
+    output:
+        'data/processed/qiime2/{pipeline}/gneiss/hierarchy.qza'
+    conda:
+        'envs/qiime2.yml'
+    threads:
+        1
+    shell:
+        'qiime gneiss correlation-clustering '
+        '--i-table {input} '
+        '--o-clustering {output}'
+
+rule qiime2_ilr_transform:
+    input:
+        table = 'data/processed/qiime2/{pipeline}/gneiss/composition.qza',
+        tree = 'data/processed/qiime2/{pipeline}/gneiss/hierarchy.qza'
+    output:
+        'data/processed/qiime2/{pipeline}/gneiss/balances.qza'
+    conda:
+        'envs/qiime2.yml'
+    threads:
+        1
+    shell:
+        'qiime gneiss ilr-transform '
+        '--i-table {input.table} '
+        '--i-tree {input.tree} '
+        '--o-balances {output}'
+
+
+rule qiime2_ols_regression:
+    input:
+        table = 'data/processed/qiime2/{pipeline}/gneiss/balances.qza',
+        tree = 'data/processed/qiime2/{pipeline}/gneiss/hierarchy.qza',
+        sample_info = 'data/interim/qiime2/sample_info.txt'
+    output:
+        'data/processed/qiime2/{pipeline}/gneiss/regression_summary.qzv'
+    conda:
+        'envs/qiime2.yml'
+    threads:
+        1
+    params:
+        regr_formula= '~Sample_Group',
+    shell:
+        'qiime gneiss ols-regression ' 
+        '--p-formula {params.regr_formula} '
+        '--i-table {input.table} '
+        '--i-tree {input.tree} '
+        '--m-metadata-file {input.sample_info} '
+        '--o-visualization {output}'
+    
+
+rule qiime2_dendro_heatmap:
+    input:
+        table = 'data/processed/qiime2/{pipeline}/gneiss/composition.qza',
+        tree = 'data/processed/qiime2/{pipeline}/gneiss/hierarchy.qza',
+        sample_info = 'data/interim/qiime2/sample_info.txt'
+    output:
+        'data/processed/qiime2/{pipeline}/gneiss/heatmap.qzv'
+    conda:
+        'envs/qiime2.yml'
+    threads:
+        1 
+    params:
+        #unpack(qiime2_get_gneiss_opts),
+        ##**config['qiime2']['gneiss_opts'],
+        color_map = 'seismic',
+        heatmap_meta_col = 'Sample_Group'
+    shell:
+        'qiime gneiss dendrogram-heatmap '
+        '  --i-table {input.table} ' 
+        '  --i-tree {input.tree} '
+        '  --m-metadata-file {input.sample_info} '
+        '  --m-metadata-column {params.heatmap_meta_col} '
+        '  --p-color-map "seismic" '
+        '  --o-visualization {output} '
+
+
+rule qiime2_balance_taxa:
+    input:
+        table = 'data/processed/qiime2/{pipeline}/gneiss/composition.qza',
+        tree = 'data/processed/qiime2/{pipeline}/gneiss/hierarchy.qza',
+        sample_info = 'data/interim/qiime2/sample_info.txt',
+        taxa = 'data/processed/qiime2/{pipeline}/{db}/taxonomy.qza'
+    output:
+        'data/processed/qiime2/{pipeline}/gneiss/{db}/taxa_balance.qzv'
+    conda:
+        'envs/qiime2.yml'
+    threads:
+        1
+    params:
+        #**config['qiime2']['gneiss_opts'],
+        balance_taxa_level = 7,
+        balance_meta_col = 'Sample_Group',
+        balance_name = 'otu'
+    shell:
+        'qiime gneiss balance-taxonomy '
+        '  --i-table {input.table} '
+        '  --i-tree {input.tree} '
+        '  --i-taxonomy {input.taxa} '
+        '  --p-taxa-level {params.balance_taxa_level} '
+        '  --p-balance-name {params.balance_name} '
+        '  --m-metadata-file {input.sample_info} '
+        '  --m-metadata-column {params.balance_meta_col} '
+        '  --o-visualization {output} '
+        
+
+rule qiime2_export_table_biom:
+    input:
+        table = 'data/processed/qiime2/{pipeline}/table.qza',
+    output:
+        table = temp('data/interim/qiime2/{pipeline}/exported/feature-table.biom'),
+    conda:
+        'envs/qiime2.yml'
+    threads:
+        1
+    params:
+        out_dir = 'data/interim/qiime2/{pipeline}/exported'
+    shell:
+        'qiime tools export {input.table} --output-dir {params.out_dir}'
+
+rule qiime2_export_taxa_tsv:
+    input:
+        taxa = 'data/processed/qiime2/{pipeline}/{db}/taxonomy.qza'
+    output:
+        taxa =  temp('data/interim/qiime2/{pipeline}/exported/{db}/taxonomy.tsv')
+    conda:
+        'envs/qiime2.yml'
+    threads:
+        1
+    params:
+        out_dir = 'data/interim/qiime2/{pipeline}/exported/{db}'
+    shell:
+        'qiime tools export {input.taxa} --output-dir {params.out_dir}'
+    
+rule qiime2_alter_taxa_tsv_header:
+    input:
+        'data/interim/qiime2/{pipeline}/exported/{db}/taxonomy.tsv'
+    output:
+        'data/interim/qiime2/{pipeline}/exported/{db}/alter_taxa_header.done'
+    threads:
+        1
+    shell:
+        "sed -i -e 's/Feature ID\tTaxon\tConfidence/#OTUID\ttaxonomy\tconfidende/g' {input} && " 
+        " touch {output}" 
+
+rule qiime2_add_taxa_to_biom:
+    input:
+        biom = 'data/interim/qiime2/{pipeline}/exported/feature-table.biom',
+        taxa = 'data/interim/qiime2/{pipeline}/exported/{db}/taxonomy.tsv',
+        done = 'data/interim/qiime2/{pipeline}/exported/{db}/alter_taxa_header.done'
+    output:
+        'data/interim/qiime2/{pipeline}/exported/{db}/table_taxa.biom'
+    conda:
+        'envs/qiime2.yml'
+    threads:
+        1
+    shell:
+        'biom add-metadata -i {input.biom} -o {output} --observation-metadata-fp {input.taxa} --sc-separated taxonomy'
+
+
+rule qiime2_sample_info_biom:
+    input:
+        'data/interim/qiime2/sample_info.txt'
+    output:
+        temp('data/interim/qiime2/sample_info_biom.txt')
+    threads:
+        1
+    shell:
+        'cp {input} {output} && '
+        'sed -i -e "s/sample-id/#Sample ID/g" {output}'
+
+rule qiime2_convert_biom:
+    input:
+        biom = 'data/interim/qiime2/{pipeline}/exported/{db}/table_taxa.biom',
+        sample_info = 'data/interim/qiime2/sample_info_biom.txt'
+    output:
+        'data/processed/qiime2/{pipeline}/{db}/taxa.biom'
+    conda:
+        'envs/qiime2.yml'
+    threads:
+        1
+    params:
+        '--table-type="OTU table" --to-json'
+    shell:
+        'biom convert -i {input.biom} -o {output} {params} -m  {input.sample_info}'
+
+
+rule qiime2_align:
+    input:
+        'data/processed/qiime2/{pipeline}/rep-seqs.qza'
+    output:
+        temp('data/interim/qiime2/{pipeline}/aligned-rep-seqs.qza')
+    conda:
+        'envs/qiime2.yml'
+    threads:
+        1
+    shell:
+        'qiime alignment mafft '
+        '--i-sequences {input} '
+        '--o-alignment {output} '
+
+rule qiime2_align_mask:
+    input:
+        'data/interim/qiime2/{pipeline}/aligned-rep-seqs.qza'
+    output:
+        temp('data/interim/qiime2/{pipeline}/masked-aligned-rep-seqs.qza')
+    conda:
+        'envs/qiime2.yml'
+    threads:
+        1
+    shell:
+        'qiime alignment mask '
+        '--i-alignment {input} '
+        '--o-masked-alignment {output} '
+
+rule qiime2_fasttree:
+    input:
+        'data/interim/qiime2/{pipeline}/masked-aligned-rep-seqs.qza'
+    output:
+        temp('data/interim/qiime2/{pipeline}/unrooted-tree.qza')
+    conda:
+        'envs/qiime2.yml'
+    threads:
+        1
+    shell:
+        'qiime phylogeny fasttree '
+        '--i-alignment {input} '
+        '--o-tree {output}'
+
+rule qiime2_midpoint_root:
+    input:
+        'data/interim/qiime2/{pipeline}/unrooted-tree.qza'
+    output:
+        'data/processed/qiime2/{pipeline}/rooted-tree.qza'
+    conda:
+        'envs/qiime2.yml'
+    threads:
+        1
+    shell:
+        'qiime phylogeny midpoint-root '
+        '--i-tree {input} '
+        '--o-rooted-tree {output}'
+
+rule qiime2_export_phylo_tree:
+    input:
+        'data/processed/qiime2/{pipeline}/rooted-tree.qza'
+    output:
+        'data/processed/qiime2/{pipeline}/phylo-tree/tree.nwk'
+    conda:
+        'envs/qiime2.yml'
+    threads:
+        1
+    params:
+        out_dir = 'data/processed/qiime2/{pipeline}/phylo-tree'
+    shell:
+        'qiime tools export {input} --output-dir {params.out_dir}'
+
+
+rule qiime2_to_phyloseq:
+    input:
+        biom = 'data/processed/qiime2/{pipeline}/{db}/taxa.biom',
+        tree = 'data/processed/qiime2/{pipeline}/phylo-tree/tree.nwk'
+    output:
+        'data/processed/qiime2/{pipeline}/{db}/physeq.rds'
+    params:
+        script = srcdir('scripts/qiime2_create_physeq.R')
+    conda:
+        'envs/dada2.yaml'
+    shell:
+        'Rscript {params.script} {input} {output}'
+
+
+
+QIIME2_FILES = ['rep-seqs.qza','stats.qza','table.qza','rep-seqs-feature-tabulated.qzv','table-feature-summary.qzv','phylo-tree/tree.nwk']
+
+QIIME2_GNEISS_FILES = ['regression_summary.qzv','heatmap.qzv','taxa_balance.qzv']
+
+QIIME2_PIPELINES = ['dada2','deblur']
+
+QIIME2_DB = ['GG', 'SILVA']
+
+rule qiime2_gneiss_all:
+    input:
+        expand('data/processed/qiime2/{pipeline}/gneiss/{file}', pipeline=QIIME2_PIPELINES, file=QIIME2_GNEISS_FILES)
+
+rule qiime2_all:
+    input:
+        expand('data/processed/qiime2/{pipeline}/{file}',file=QIIME2_FILES,pipeline=QIIME2_PIPELINES),
+        expand('data/processed/qiime2/{pipeline}/{db}/taxa.biom',pipeline=QIIME2_PIPELINES,db=QIIME2_DB),
+        expand('data/processed/qiime2/{pipeline}/{db}/taxonomy.qzv',pipeline=QIIME2_PIPELINES,db=QIIME2_DB),
+        expand('data/processed/qiime2/{pipeline}/{db}/physeq.rds',pipeline=QIIME2_PIPELINES,db=QIIME2_DB),
+        'data/processed/qiime2/dada2/stats-metatab.qzv'
+

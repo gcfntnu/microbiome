@@ -1,0 +1,23 @@
+rule qiime2_get_gg_classifier:
+    output:
+        'data/interim/qiime2/classifiers/gg-13-8-99-515-806-nb-classifier.qza'
+    threads:
+        1
+    shell:
+        'wget -O {output} "https://data.qiime2.org/2018.6/common/gg-13-8-99-515-806-nb-classifier.qza"'
+
+
+rule qiime2_get_silva_classifier:
+    output:
+        'data/interim/qiime2/classifiers/silva-132-99-515-806-nb-classifier.qza'
+    threads:
+        1
+    shell:
+        'wget -O {output} "https://data.qiime2.org/2018.6/common/silva-132-99-515-806-nb-classifier.qza"'
+
+
+def get_qiime2_classifier(wildcards):
+    if wildcards.db == 'GG':
+        return {'classifier': 'data/interim/qiime2/classifiers/gg-13-8-99-515-806-nb-classifier.qza'}
+    elif wildcards.db == 'SILVA':
+        return {'classifier': 'data/interim/qiime2/classifiers/silva-132-99-515-806-nb-classifier.qza'}
