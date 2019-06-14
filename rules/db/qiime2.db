@@ -6,7 +6,7 @@ rule qiime2_prebuild_classifier_gg:
     output:
         join(QIIME2_INTERIM, 'classifiers', 'gg-13-8-99-515-806-nb-classifier.qza')
     params:
-        version = config['qiime2']['version']
+        version = config['quant']['qiime2']['version']
     shell:
         'wget -O {output} "https://data.qiime2.org/{params.version}/common/gg-13-8-99-515-806-nb-classifier.qza"'
 
@@ -15,7 +15,7 @@ rule qiime2_prebuild_classifier_silva:
     output:
         join(QIIME2_INTERIM, 'classifiers', 'silva-132-99-515-806-nb-classifier.qza')
     params:
-        version = config['qiime2']['version']
+        version = config['quant']['qiime2']['version']
     shell:
         'wget -O {output} "https://data.qiime2.org/{params.version}/common/silva-132-99-515-806-nb-classifier.qza"'
 

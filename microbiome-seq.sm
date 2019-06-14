@@ -70,21 +70,12 @@ with open(libprep_fn) as fh:
     LIBPREP_CONF  = yaml.load(fh) or {}
 kit = config.get('libprepkit', 'default')
 LIBPREP = LIBPREP_CONF[kit]
-if kit.startswith('Lexogen'):
-    # we cut start/end random seqs on lexogen kits
-    read_geometry = config.get('read_geometry')
-    if read_geometry:
-        read_geometry = [int(i) for i in read_geometry]
-        read_geometry[0] -= 10
-        if len(read_geometry) > 1:
-            read_geometry[0] -= 7
-        config['read_geometry'] = read_geometry
 
 if not 'SAMPLES' in locals():
     SAMPLES = list(config.get('samples', {}).keys())
 
 include:
-    'rules/qiime2.rules'
+    'rules/quant.rules'
 
 
 rule sample_info:

@@ -1,0 +1,166 @@
+#-*- mode:snakemake -*-
+
+ADAPTER = config.get('adapter') or LIBPREP['single_end'].get('adapter')
+ADAPTER2 = config.get('adapter2') or LIBPREP['paired_end'].get('adapter2')
+PE = len(config['read_geometry']) > 1
+
+
+rule fastp_interleave_fastq:
+    input:
+        unpack(get_raw_fastq)
+    output:
+        pipe(join(FILTER_INTERIM, 'interleaved_fastq', '{sample}.fastq'))
+    params:
+        script = srcdir('scripts/interleave_fastq.sh')
+    shell:
+        '{params.script} <(zcat {input.R1}) <(zcat {input.R2}) > {output}'
+
+if PE:
+    rule fastp_join:
+        input:
+            rules.fastp_interleave_fastq.output
+        output:
+            R1 = join(FILTER_INTERIM, 'merged_fastq', 'trimmed', 'fastp', '{sample}_R1.fastq'),
+            R2 = join(FILTER_INTERIM, 'merged_fastq', 'trimmed', 'fastp', '{sample}_R2.fastq')
+        threads:
+            3
+        params:
+            args = '',
+            adapter_arg = '--adapter_sequence {} --adapter_sequence_r2 {} '.format(ADAPTER, ADAPTER2) if ADAPTER else '--detect_adapter_for_pe ',
+            kit_args = LIBPREP.get('paired_end',{}).get('fastp', {}).get('params') or ''
+        log:
+            json = 'logs/{sample}/fastp.json',
+            html = 'logs/{sample}/fastp.html'
+        singularity:
+            'docker://quay.io/biocontainers/fastp:0.19.7--hdbcaa40_0'
+        shell:
+            'cat {input} | fastp --stdin --interleaved_in -o {output.R1} -O {output.R2} -j {log.json} -h {log.html} --thread {threads} {params}'
+
+    rule fastp:
+        input:
+            unpack(get_raw_fastq)
+        output:
+            R1 = join(FILTER_INTERIM, 'fastq', 'trimmed', 'fastp', '{sample}_R1.fastq'),
+            R2 = join(FILTER_INTERIM, 'fastq', 'trimmed', 'fastp', '{sample}_R2.fastq')
+        params:
+            args = '',
+            adapter_arg = '--adapter_sequence {} --adapter_sequence_r2 {} '.format(ADAPTER, ADAPTER2) if ADAPTER else '--detect_adapter_for_pe ',
+            kit_args = LIBPREP.get('paired_end',{}).get('fastp', {}).get('params') or ''
+        threads:
+            3
+        log:
+            json = 'logs/{sample}/{sample}.fastp.json',
+            html = 'logs/{sample}/{sample}.fastp.html'
+        singularity:
+            'docker://quay.io/biocontainers/fastp:0.19.7--hdbcaa40_0'
+        shell:
+            'fastp -i {input.R1} -I {input.R2} -o {output.R1} -O {output.R2} -j {log.json} -h {log.html} --thread {threads} {params}'
+
+    rule fastp_join_skip:
+        input:
+            join(FILTER_INTERIM, 'interleaved_fastq', '{sample}.fastq')
+        output:
+            R1 = join(FILTER_INTERIM, 'merged_fastq', 'trimmed', 'skip', '{sample}_R1.fastq'),
+            R2 = join(FILTER_INTERIM, 'merged_fastq', 'trimmed', 'skip' '{sample}_R2.fastq')
+        threads:
+            3
+        params:
+            args = '-A -Q'
+        log:
+            json = 'logs/{sample}/fastp.json',
+            html = 'logs/{sample}/fastp.html'
+        singularity:
+            'docker://quay.io/biocontainers/fastp:0.19.7--hdbcaa40_0'
+        shell:
+            'cat {input} | fastp --stdin --interleaved_in -o {output.R1} -O {output.R2} -j {log.json} -h {log.html} --thread {threads} {params}'
+            
+    rule fastp_skip:
+        input:
+            unpack(get_raw_fastq)
+        output:
+            R1 = join(FILTER_INTERIM, 'fastq', 'trimmed', 'skip', '{sample}_R1.fastq'),
+            R2 = join(FILTER_INTERIM, 'fastq', 'trimmed', 'skip' '{sample}_R2.fastq')
+        params:
+            args = '-A -Q ',
+        threads:
+            3
+        log:
+            json = 'logs/{sample}/{sample}.fastp.json',
+            html = 'logs/{sample}/{sample}.fastp.html'
+        singularity:
+            'docker://quay.io/biocontainers/fastp:0.19.7--hdbcaa40_0'
+        shell:
+            'fastp -i {input.R1} -I {input.R2} -o {output.R1} -O {output.R2} -j {log.json} -h {log.html} --thread {threads} {params}'
+
+else:
+    rule fastp_join:
+        input:
+            unpack(get_raw_fastq)
+        output:
+            R1 = join(FILTER_INTERIM, 'merged_fastq', 'trimmed', 'fastp', '{sample}_R1.fastq')
+        threads:
+            3        
+        params:
+            args = '',
+            adapter_arg = '--adapter_sequence {}'.format(ADAPTER) if ADAPTER else '',
+            kit_args = LIBPREP.get('single_end',{}).get('fastp', {}).get('params') or ''
+        log:
+            json = 'logs/{sample}/{sample}.fastp.json',
+            html = 'logs/{sample}/{sample}.fastp.html'
+        singularity:
+            'docker://quay.io/biocontainers/fastp:0.19.7--hdbcaa40_0'
+        shell:
+            ' zcat {input} | fastp --stdin -o {output.R1} -j {log.json} -h {log.html} --thread {threads} {params}'
+
+    rule fastp:
+        input:
+            unpack(get_raw_fastq)
+        output:
+            R1 = join(FILTER_INTERIM, 'fastq', 'trimmed', 'fastp', '{sample}_R1.fastq')
+        threads:
+            3
+        params:
+            args = '',
+            adapter_arg = '--adapter_sequence {}'.format(ADAPTER) if ADAPTER else '',
+            kit_args = LIBPREP.get('single_end',{}).get('fastp', {}).get('params') or ''
+        log:
+            json = 'logs/{sample}/{sample}.fastp.json',
+            html = 'logs/{sample}/{sample}.fastp.html'
+        singularity:
+            'docker://quay.io/biocontainers/fastp:0.19.7--hdbcaa40_0'
+        shell:
+            'fastp -i {input.R1} -o {output.R1} -j {log.json} -h {log.html} --thread {threads} {params}'
+            
+    rule fastp_join_skip:
+        input:
+            unpack(get_raw_fastq)
+        output:
+            R1 = join(FILTER_INTERIM, 'merged_fastq', 'trimmed', 'skip', '{sample}_R1.fastq')
+        threads:
+            3        
+        params:
+            args = '-A -Q '
+        log:
+            json = 'logs/{sample}/{sample}.fastp.json',
+            html = 'logs/{sample}/{sample}.fastp.html'
+        singularity:
+            'docker://quay.io/biocontainers/fastp:0.19.7--hdbcaa40_0'
+        shell:
+            ' zcat {input} | fastp --stdin -o {output.R1} -j {log.json} -h {log.html} --thread {threads} {params}'
+
+    rule fastp_skip:
+        input:
+            unpack(get_raw_fastq)
+        output:
+            R1 = join(FILTER_INTERIM, 'fastq', 'trimmed', 'skip', '{sample}_R1.fastq')
+        params:
+            args = '-A -Q ',
+        threads:
+            3
+        log:
+            json = 'logs/{sample}/{sample}.fastp.json',
+            html = 'logs/{sample}/{sample}.fastp.html'
+        singularity:
+            'docker://quay.io/biocontainers/fastp:0.19.7--hdbcaa40_0'
+        shell:
+            'fastp -i {input.R1} -o {output.R1} -j {log.json} -h {log.html} --thread {threads} {params}' 

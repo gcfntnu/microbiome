@@ -4,22 +4,34 @@
 QIIME2_INTERIM = join(INTERIM_DIR, 'qiime2')
 QIIME2_PROCESSED = join(PROCESSED_DIR, 'qiime2')
 
-QIIME2_IMAGE = 'docker://qiime2/core:{}'.format(config['qiime2']['version'])
+QIIME2_IMAGE = 'docker://qiime2/core:{}'.format(config['quant']['qiime2']['version'])
 
 include:
-    'qiime2.db'
+    '../db/qiime2.db'
 
-PE = len(config['read_geometry']) > 1 
+PE = len(config['read_geometry']) > 1
 
-rule qiime2_manifest:
-    input:
-        'config.yaml'
-    output:
-        join(QIIME2_INTERIM, 'qiime2_manifest.tsv')
-    params:
-        script = srcdir('scripts/make_manifest_qiime2.py')
-    shell:
-        '{params.script} {input} {output}'
+if PE:
+    rule qiime2_manifest:
+        input:
+            R1 = expand(join(FILTER_INTERIM, 'merged_fastq', 'trimmed', 'fastp', '{sample}_R1.fastq'), sample=SAMPLES),
+            R2 = expand(join(FILTER_INTERIM, 'merged_fastq', 'trimmed', 'fastp', '{sample}_R2.fastq'), sample=SAMPLES)
+        output:
+            join(QIIME2_INTERIM, 'qiime2_manifest.tsv')
+        params:
+            script = srcdir('scripts/make_manifest_qiime2.py')
+        shell:
+            '{params.script} {input} {output}'
+else:
+    rule qiime2_manifest:
+        input:
+            R1 = expand(join(FILTER_INTERIM, 'merged_fastq', 'trimmed', 'fastp', '{sample}_R1.fastq.gz'), sample=SAMPLES)
+        output:
+            join(QIIME2_INTERIM, 'qiime2_manifest.tsv')
+        params:
+            script = srcdir('scripts/make_manifest_qiime2.py')
+        shell:
+            '{params.script} {input} {output}'
 
 rule qiime2_import:
     input:
