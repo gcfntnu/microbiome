@@ -1,23 +1,27 @@
-rule qiime2_get_gg_classifier:
+#-*- mode: snakemake -*-
+"""Snakemake rules for external data in the micriobiome workflow
+"""
+
+rule qiime2_prebuild_classifier_gg:
     output:
-        'data/interim/qiime2/classifiers/gg-13-8-99-515-806-nb-classifier.qza'
-    threads:
-        1
+        join(QIIME2_INTERIM, 'classifiers', 'gg-13-8-99-515-806-nb-classifier.qza')
+    params:
+        version = config['qiime2']['version']
     shell:
-        'wget -O {output} "https://data.qiime2.org/2018.6/common/gg-13-8-99-515-806-nb-classifier.qza"'
+        'wget -O {output} "https://data.qiime2.org/{params.version}/common/gg-13-8-99-515-806-nb-classifier.qza"'
 
 
-rule qiime2_get_silva_classifier:
+rule qiime2_prebuild_classifier_silva:
     output:
-        'data/interim/qiime2/classifiers/silva-132-99-515-806-nb-classifier.qza'
-    threads:
-        1
+        join(QIIME2_INTERIM, 'classifiers', 'silva-132-99-515-806-nb-classifier.qza')
+    params:
+        version = config['qiime2']['version']
     shell:
-        'wget -O {output} "https://data.qiime2.org/2018.6/common/silva-132-99-515-806-nb-classifier.qza"'
+        'wget -O {output} "https://data.qiime2.org/{params.version}/common/silva-132-99-515-806-nb-classifier.qza"'
 
 
-def get_qiime2_classifier(wildcards):
-    if wildcards.db == 'GG':
-        return {'classifier': 'data/interim/qiime2/classifiers/gg-13-8-99-515-806-nb-classifier.qza'}
-    elif wildcards.db == 'SILVA':
-        return {'classifier': 'data/interim/qiime2/classifiers/silva-132-99-515-806-nb-classifier.qza'}
+def get_qiime2_prebuild_classifier(wildcards):
+    if wildcards.db == 'gg':
+        return join(QIIME2_INTERIM, 'classifiers', 'gg-13-8-99-515-806-nb-classifier.qza')
+    elif wildcards.db == 'silva':
+        return join(QIIME2_INTERIM, 'classifiers', 'silva-132-99-515-806-nb-classifier.qza')

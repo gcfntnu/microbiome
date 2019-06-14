@@ -10,22 +10,24 @@ helptext = '\nUSAGE: make_manifest_qiime2.py /path/to/config.yaml /path/to/manif
 def main(conffile, manifest):
     with open(conffile, 'r') as cfile:
         conf = yaml.load(cfile)
+    paired_end = len(conf['read_geometry']) > 1
     fastq_dir = os.path.abspath(conf['fastq_dir'])
-    header = ['sample-id', 'absolute-filepath', 'direction']
+    if paired_end:
+        header = ['sample-id', 'forward-absolute-filepath', 'reverse-absolute-filepath']
+    else:
+        header = ['sample-id', 'absolute-filepath']
 
     with open(manifest, 'w+') as manf:
-        manf.write(','.join(header) + '\n')
+        manf.write('\t'.join(header) + '\n')
 
         for s in conf['samples'].keys():
             sample = conf['samples'][s]
-            for r1 in sample['R1'].split(','):
-                r1_abspath = os.path.join(fastq_dir, r1)
-                manf.write('{},{},forward\n'.format(s, r1_abspath))
-            if not 'R2' in sample:
-
-            for r2 in sample['R2'].split(','):
-                    r2_abspath = os.path.join(fastq_dir, r2)
-                    manf.write('{},{},reverse\n'.format(s, r2_abspath))
+            r1_abspath = os.path.join(fastq_dir, sample['R1'])
+            if paired_end:
+                r2_abspath = os.path.join(fastq_dir, sample['R2'])
+                manf.write('{}\t{}\t{}\n'.format(s, r1_abspath, r2_abspath))
+            else:
+                manf.write('{}\t{}\n'.format(s, r1_abspath))
 
 if __name__ == '__main__':
     try:
