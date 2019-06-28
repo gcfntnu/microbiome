@@ -1,10 +1,11 @@
 #-*- mode: snakemake -*-
 """Snakemake rules for qiime2 workflow of 16S micriobiome data
 """
-QIIME2_INTERIM = join(INTERIM_DIR, 'qiime2')
-QIIME2_PROCESSED = join(PROCESSED_DIR, 'qiime2')
 
-QIIME2_IMAGE = 'docker://qiime2/core:{}'.format(config['quant']['qiime2']['version'])
+QIIME2_INTERIM = join(QUANT_INTERIM, 'qiime2')
+QIIME2_PROCESSED = join(QUANT_PROCESSED, 'qiime2')
+
+QIIME2_IMAGE = 'docker://gcfntnu/qiime2:{}'.format(config['quant']['qiime2']['version'])
 
 include:
     '../db/qiime2.db'
@@ -21,7 +22,7 @@ if PE:
         params:
             script = srcdir('scripts/make_manifest_qiime2.py')
         shell:
-            '{params.script} {input} {output}'
+            '{params.script} {input} > {output}'
 else:
     rule qiime2_manifest:
         input:
@@ -31,13 +32,13 @@ else:
         params:
             script = srcdir('scripts/make_manifest_qiime2.py')
         shell:
-            '{params.script} {input} {output}'
+            '{params.script} {input} > {output}'
 
 rule qiime2_import:
     input:
         join(QIIME2_INTERIM, 'qiime2_manifest.tsv')
     output:
-        join(QIIME2_INTERIM, 'artifacts', 'demultiplexed.qza')
+        join(QIIME2_INTERIM, 'demultiplexed.qza')
     singularity:
         QIIME2_IMAGE
     params:
@@ -54,9 +55,9 @@ rule qiime2_import:
 
 rule qiime2_demux_summary:
     input:
-        join(QIIME2_INTERIM, 'artifacts', 'demultiplexed.qza')
+        join(QIIME2_INTERIM, 'demultiplexed.qza')
     output:
-        join(QIIME2_INTERIM, 'artifacts', 'demultiplexed.qzv')
+        join(QIIME2_INTERIM, 'demultiplexed.qzv')
     singularity:
         QIIME2_IMAGE    
     shell:
@@ -64,13 +65,13 @@ rule qiime2_demux_summary:
         '--i-data {input} '
         '--o-visualization {output} '
 
-rule qiime2_quality_filter:
+rule qiime2_quality_filter_deblur:
     input:
-        join(QIIME2_INTERIM, 'artifacts', 'demultiplexed.qza'),
-        join(QIIME2_INTERIM, 'artifacts', 'demultiplexed.qzv')
+        join(QIIME2_INTERIM, 'demultiplexed.qza'),
+        join(QIIME2_INTERIM, 'demultiplexed.qzv')
     output:
-        filtered = join(QIIME2_INTERIM, 'filtered', 'filtered.qza'),
-        stats = join(QIIME2_INTERIM, 'filtered', 'stats.qza')
+        filtered = join(QIIME2_INTERIM, 'deblur', 'filtered.qza'),
+        stats = join(QIIME2_INTERIM, 'deblur', 'stats.qza')
     singularity:
         QIIME2_IMAGE
     shell:
@@ -81,7 +82,7 @@ rule qiime2_quality_filter:
 
 rule qiime2_denoise_deblur:
     input:
-        join(QIIME2_INTERIM, 'filtered', 'filtered.qza')
+        join(QIIME2_INTERIM, 'deblur', 'filtered.qza')
     output:
         rep_seqs = join(QIIME2_INTERIM, 'deblur', 'rep-seqs.qza'),
         table = join(QIIME2_INTERIM, 'deblur', 'table.qza'),
@@ -102,7 +103,7 @@ rule qiime2_denoise_deblur:
         '--o-stats {output.stats} '     
         '--p-jobs-to-start {threads}'
 
-rule qiime2_deblur_vis_stats:
+rule qiime2_vis_stats_deblur:
     input:
         join(QIIME2_INTERIM, 'deblur', 'stats.qza')
     output:
@@ -145,7 +146,7 @@ rule qiime2_denoise_dada2:
         '--o-denoising-stats {output.stats} '
         '--p-n-threads {threads} '
 
-rule qiime2_dada2_vis_stats:
+rule qiime2_vis_stats_dada2:
     input:
         join(QIIME2_INTERIM, 'dada2', 'stats.qza')
     output:
@@ -192,7 +193,7 @@ rule qiime2_feature_table_tabulate:
         '--i-data {input} '
         '--o-visualization {output} '
 
-rule qiime2_taxa:
+rule qiime2_taxa_classifier:
     input:
         classifier = get_qiime2_prebuild_classifier,
         rep_seq = join(QIIME2_INTERIM, '{denoiser}', 'rep-seqs.qza')
@@ -201,7 +202,7 @@ rule qiime2_taxa:
     singularity:
        QIIME2_IMAGE
     threads:
-        48
+        1
     shell:
         'qiime feature-classifier classify-sklearn '
         '--i-classifier {input.classifier} '
@@ -211,15 +212,13 @@ rule qiime2_taxa:
 
 rule qiime2_taxa_barplot:
     input:
-        table = 'data/processed/qiime2/{denoiser}/table.qza',
-        taxa = 'data/processed/qiime2/{denoiser}/{db}/taxonomy.qza',
-        sample_info = 'data/interim/qiime2/sample_info.txt'
+        table = join(QIIME2_INTERIM, '{denoiser}', 'table.qza'),
+        taxa = join(QIIME2_INTERIM, '{denoiser}', '{db}', 'taxonomy.qza'),
+        sample_info = join(QIIME2_INTERIM, 'sample_info.tsv')
     output:
-        'data/processed/qiime2/{denoiser}/{db}/taxonomy.qzv'
-    conda:
-        'envs/qiime2.yml'
-    threads:
-        1
+        join(QIIME2_INTERIM, '{denoiser}', '{db}', 'taxonomy.qzv')
+    singularity:
+       QIIME2_IMAGE
     shell:
         'qiime taxa barplot '
         '--i-table {input.table} '
@@ -229,94 +228,76 @@ rule qiime2_taxa_barplot:
 
 rule qiime2_export_table_biom:
     input:
-        table = 'data/processed/qiime2/{denoiser}/table.qza',
+        table = join(QIIME2_INTERIM, '{denoiser}', 'table.qza')
     output:
-        table = temp('data/interim/qiime2/{denoiser}/exported/feature-table.biom'),
+        table = temp(join(QIIME2_INTERIM, '{denoiser}', 'feature-table.biom')),
     conda:
         'envs/qiime2.yml'
+    singularity:
+       QIIME2_IMAGE    
     threads:
         1
     params:
-        out_dir = 'data/interim/qiime2/{denoiser}/exported'
+        out_dir = join(QIIME2_INTERIM, '{denoiser}')
     shell:
-        'qiime tools export {input.table} --output-dir {params.out_dir}'
+        'qiime tools export --input-path {input.table} --output-path {params.out_dir}'
 
 rule qiime2_export_taxa_tsv:
     input:
-        taxa = 'data/processed/qiime2/{denoiser}/{db}/taxonomy.qza'
+        taxa = join(QIIME2_INTERIM, '{denoiser}', '{db}', 'taxonomy.qza')
     output:
-        taxa =  temp('data/interim/qiime2/{denoiser}/exported/{db}/taxonomy.tsv')
-    conda:
-        'envs/qiime2.yml'
-    threads:
-        1
+        taxa =  join(QIIME2_INTERIM, '{denoiser}', '{db}', 'taxonomy.tsv')
+    singularity:
+       QIIME2_IMAGE    
     params:
-        out_dir = 'data/interim/qiime2/{denoiser}/exported/{db}'
+        out_dir = join(QIIME2_INTERIM, '{denoiser}', '{db}')
     shell:
-        'qiime tools export {input.taxa} --output-dir {params.out_dir}'
-    
-rule qiime2_alter_taxa_tsv_header:
-    input:
-        'data/interim/qiime2/{denoiser}/exported/{db}/taxonomy.tsv'
-    output:
-        'data/interim/qiime2/{denoiser}/exported/{db}/alter_taxa_header.done'
-    threads:
-        1
-    shell:
-        "sed -i -e 's/Feature ID\tTaxon\tConfidence/#OTUID\ttaxonomy\tconfidende/g' {input} && " 
-        " touch {output}" 
+        'qiime tools export --input-path {input.taxa} --output-path {params.out_dir}'
 
 rule qiime2_add_taxa_to_biom:
     input:
-        biom = 'data/interim/qiime2/{denoiser}/exported/feature-table.biom',
-        taxa = 'data/interim/qiime2/{denoiser}/exported/{db}/taxonomy.tsv',
-        done = 'data/interim/qiime2/{denoiser}/exported/{db}/alter_taxa_header.done'
+        biom = join(QIIME2_INTERIM, '{denoiser}', 'feature-table.biom'),
+        taxa = join(QIIME2_INTERIM, '{denoiser}', '{db}', 'taxonomy.tsv')
     output:
-        'data/interim/qiime2/{denoiser}/exported/{db}/table_taxa.biom'
-    conda:
-        'envs/qiime2.yml'
-    threads:
-        1
+        join(QIIME2_INTERIM, '{denoiser}', '{db}', 'table.biom')
+    singularity:
+       QIIME2_IMAGE    
     shell:
-        'biom add-metadata -i {input.biom} -o {output} --observation-metadata-fp {input.taxa} --sc-separated taxonomy'
-
+        'biom add-metadata '
+        '-i {input.biom} '
+        '-o {output} '
+        '--observation-metadata-fp {input.taxa} '
+        '--sc-separated taxonomy '
 
 rule qiime2_sample_info_biom:
     input:
-        'data/interim/qiime2/sample_info.txt'
+        join(QIIME2_INTERIM, 'sample_info.tsv')
     output:
-        temp('data/interim/qiime2/sample_info_biom.txt')
-    threads:
-        1
+        temp(join(QIIME2_INTERIM, '_sample_info_biom.txt'))
     shell:
         'cp {input} {output} && '
         'sed -i -e "s/sample-id/#Sample ID/g" {output}'
 
 rule qiime2_convert_biom:
     input:
-        biom = 'data/interim/qiime2/{denoiser}/exported/{db}/table_taxa.biom',
-        sample_info = 'data/interim/qiime2/sample_info_biom.txt'
+        biom = join(QIIME2_INTERIM, '{denoiser}', '{db}', 'table.biom'),
+        sample_info = join(QIIME2_INTERIM, '_sample_info_biom.txt')
     output:
-        'data/processed/qiime2/{denoiser}/{db}/taxa.biom'
-    conda:
-        'envs/qiime2.yml'
-    threads:
-        1
+        join(QIIME2_PROCESSED, '{denoiser}', '{db}', 'table.biom')
+    singularity:
+        QIIME2_IMAGE
     params:
         '--table-type="OTU table" --to-json'
     shell:
-        'biom convert -i {input.biom} -o {output} {params} -m  {input.sample_info}'
-
+        'biom convert -i {input.biom} -o {output} {params} -m {input.sample_info} '
 
 rule qiime2_align:
     input:
-        'data/processed/qiime2/{denoiser}/rep-seqs.qza'
+        join(QIIME2_INTERIM, '{denoiser}', 'rep-seqs.qza')
     output:
-        temp('data/interim/qiime2/{denoiser}/aligned-rep-seqs.qza')
-    conda:
-        'envs/qiime2.yml'
-    threads:
-        1
+        temp(join(QIIME2_INTERIM, '{denoiser}', '_aligned-rep-seqs.qza'))
+    singularity:
+       QIIME2_IMAGE
     shell:
         'qiime alignment mafft '
         '--i-sequences {input} '
@@ -324,13 +305,11 @@ rule qiime2_align:
 
 rule qiime2_align_mask:
     input:
-        'data/interim/qiime2/{denoiser}/aligned-rep-seqs.qza'
+        join(QIIME2_INTERIM, '{denoiser}', '_aligned-rep-seqs.qza')
     output:
-        temp('data/interim/qiime2/{denoiser}/masked-aligned-rep-seqs.qza')
-    conda:
-        'envs/qiime2.yml'
-    threads:
-        1
+        temp(join(QIIME2_INTERIM, '{denoiser}', '_masked-aligned-rep-seqs.qza'))
+    singularity:
+       QIIME2_IMAGE
     shell:
         'qiime alignment mask '
         '--i-alignment {input} '
@@ -338,11 +317,11 @@ rule qiime2_align_mask:
 
 rule qiime2_fasttree:
     input:
-        'data/interim/qiime2/{denoiser}/masked-aligned-rep-seqs.qza'
+        join(QIIME2_INTERIM, '{denoiser}', '_masked-aligned-rep-seqs.qza')
     output:
-        temp('data/interim/qiime2/{denoiser}/unrooted-tree.qza')
-    conda:
-        'envs/qiime2.yml'
+        temp(join(QIIME2_INTERIM, '{denoiser}', 'unrooted-tree.qza'))
+    singularity:
+       QIIME2_IMAGE    
     threads:
         1
     shell:
@@ -352,11 +331,11 @@ rule qiime2_fasttree:
 
 rule qiime2_midpoint_root:
     input:
-        'data/interim/qiime2/{denoiser}/unrooted-tree.qza'
+        join(QIIME2_INTERIM, '{denoiser}', 'unrooted-tree.qza')
     output:
-        'data/processed/qiime2/{denoiser}/rooted-tree.qza'
-    conda:
-        'envs/qiime2.yml'
+        join(QIIME2_INTERIM, '{denoiser}', 'rooted-tree.qza')
+    singularity:
+       QIIME2_IMAGE    
     threads:
         1
     shell:
@@ -366,47 +345,45 @@ rule qiime2_midpoint_root:
 
 rule qiime2_export_phylo_tree:
     input:
-        'data/processed/qiime2/{denoiser}/rooted-tree.qza'
+        join(QIIME2_INTERIM, '{denoiser}', 'rooted-tree.qza')
     output:
-        'data/processed/qiime2/{denoiser}/phylo-tree/tree.nwk'
+        join(QIIME2_PROCESSED, '{denoiser}', 'tree.nwk')
     conda:
         'envs/qiime2.yml'
+    singularity:
+       QIIME2_IMAGE 
     threads:
         1
     params:
-        out_dir = 'data/processed/qiime2/{denoiser}/phylo-tree'
+        out_dir = join(QIIME2_PROCESSED, '{denoiser}')
     shell:
-        'qiime tools export {input} --output-dir {params.out_dir}'
+        'qiime tools export --input-path {input} --output-path {params.out_dir}'
 
-
-rule qiime2_to_phyloseq:
+rule qiime2_biom_to_phyloseq:
     input:
-        biom = 'data/processed/qiime2/{denoiser}/{db}/taxa.biom',
-        tree = 'data/processed/qiime2/{denoiser}/phylo-tree/tree.nwk'
+        biom = join(QIIME2_PROCESSED, '{denoiser}', '{db}', 'table.biom'),
+        tree = join(QIIME2_PROCESSED, '{denoiser}', 'tree.nwk')
     output:
-        'data/processed/qiime2/{denoiser}/{db}/physeq.rds'
+        join(QIIME2_PROCESSED, '{denoiser}', '{db}', 'physeq.rds')
     params:
         script = srcdir('scripts/qiime2_create_physeq.R')
-    conda:
-        'envs/dada2.yaml'
+    singularity:
+       QIIME2_IMAGE 
     shell:
-        'Rscript {params.script} {input} {output}'
-
-
-
-QIIME2_FILES = ['rep-seqs.qza','stats.qza','table.qza','rep-seqs-feature-tabulated.qzv','table-feature-summary.qzv','phylo-tree/tree.nwk']
-
-QIIME2_DENOISERS = ['dada2','deblur']
-
-QIIME2_DB = ['GG', 'SILVA']
-
-
-
-rule qiime2_all:
+        'Rscript {params.script} {input} {output} {wildcards.db}'
+        
+rule qiime2_biom_to_tsv:
     input:
-        expand('data/processed/qiime2/{denoiser}/{file}',file=QIIME2_FILES,denoiser=QIIME2_DENOISERS),
-        expand('data/processed/qiime2/{denoiser}/{db}/taxa.biom',denoiser=QIIME2_DENOISERS,db=QIIME2_DB),
-        expand('data/processed/qiime2/{denoiser}/{db}/taxonomy.qzv',denoiser=QIIME2_DENOISERS,db=QIIME2_DB),
-        expand('data/processed/qiime2/{denoiser}/{db}/physeq.rds',denoiser=QIIME2_DENOISERS,db=QIIME2_DB),
-        'data/processed/qiime2/dada2/stats-metatab.qzv'
+        biom = join(QIIME2_PROCESSED, '{denoiser}', '{db}', 'table.biom')
+    output:
+        join(QIIME2_PROCESSED, '{denoiser}', '{db}', 'table.tsv')
+    singularity:
+       QIIME2_IMAGE 
+    shell:
+        'biom convert -i {input} -o {output} --to-tsv '
 
+rule qiime2_tsv_MA:
+    input:
+        join(QIIME2_PROCESSED, '{denoiser}', '{db}', 'table.tsv')
+    output:
+        

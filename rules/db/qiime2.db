@@ -21,7 +21,10 @@ rule qiime2_prebuild_classifier_silva:
 
 
 def get_qiime2_prebuild_classifier(wildcards):
-    if wildcards.db == 'gg':
+    if wildcards.db.lower() == 'gg':
         return join(QIIME2_INTERIM, 'classifiers', 'gg-13-8-99-515-806-nb-classifier.qza')
-    elif wildcards.db == 'silva':
+    elif wildcards.db.lower() == 'silva':
         return join(QIIME2_INTERIM, 'classifiers', 'silva-132-99-515-806-nb-classifier.qza')
+    else:
+        msg = "failed to identify DB : `{}`".format(str(wildcards.db))
+        raise ValueError(msg)
