@@ -1,0 +1,115 @@
+QIIME2_INTERIM = join(QUANT_INTERIM, 'qiime2')
+QIIME2_PROCESSED = join(QUANT_PROCESSED, 'qiime2')
+
+rule physeq_diversity_biosample:
+    input:
+        rds = 'data/processed/microbiome/quant/qiime2/{method}/{db}/',
+        sample_info = 'data/processed/sample_info.txt'
+    params:
+        script = 'src/metagenome_16S/rules/scripts/physeq_diversity.R',
+        subset = 'Sample_Biosource',
+        subset_keep = '{biosource}',
+        condition = 'MayoT_Remission',
+        output = 'data/processed/{method}/{db}/diversity'
+    output:
+        'data/processed/{method}/{db}/diversity/{biosource}_diversity.txt'
+    shell:
+        'Rscript {params.script} '
+        '--sample-info {input.sample_info} '
+        '--subset Sample_Biosource --subset-keep {params.subset_keep} '
+        '--output-dir={params.output} '
+        '--verbose '
+        '{input.rds} '
+
+rule physeq_diversity:
+    input:
+       expand('data/processed/{method}/{db}/diversity/{biosource}_diversity.txt', biosource=['FECES', 'BIOPSI'], db=['GG'], method=['dada2'])
+
+
+rule qiime2_diversity:
+    input:
+        table = join(QIIME2_INTERIM, '{denoiser}', 'table.qza'),
+        tree = join(QIIME2_INTERIM, '{denoiser}', 'rooted-tree.qza'),
+        sample_info = join(QIIME2_INTERIM, 'sample_info.tsv')
+    params:
+        out = join(QIIME2_INTERIM, '{denoiser}'),
+        max_depth = 20000
+    singularity:
+        QIIME2_IMAGE
+    output:
+        join(QIIME2_INTERIM, '{denoiser}', 'shannon_vector.qza')
+    shell:
+        'qiime diversity core-metrics-phylogenetic '
+        '--i-table {input.table} '
+        '--i-phylogeny {input.tree} '
+        '--m-metadata-file {input.sample_info} '
+        '--p-sampling-depth {params.max_depth} '
+        '--output-dir _diversity '
+        '&& '
+        'mv _diversity/* {params.out} '
+        '&& '
+        'rm -rf _diversity '
+
+rule qiime2_diversity_sampling:
+    input:
+        table = join(QIIME2_INTERIM, '{denoiser}', 'table.qza'),
+        tree = join(QIIME2_INTERIM, '{denoiser}', 'rooted-tree.qza'),
+        sample_info = join(QIIME2_INTERIM, 'sample_info.tsv')
+    params:
+        out = join(QIIME2_INTERIM, '{denoiser}'),
+        max_depth = 40000,
+        metrics = '--p-metrics shannon --p-metrics faith_pd --p-metrics obeserved_otus '
+    singularity:
+        QIIME2_IMAGE
+    output:
+        join(QIIME2_INTERIM, '{denoiser}', 'alpha_rarefaction.qzv')
+    shell:
+        'qiime diversity alpha-rarefaction '
+        '--i-table {input.table} '
+        '--i-phylogeny {input.tree} '
+        '--m-metadata-file {input.sample_info} '
+        '--p-max-depth {params.max_depth} '
+        '--o-visualization {output} '
+
+
+rule qiime2_shannon_correlations:
+    input:
+        alpha = join(QIIME2_INTERIM, '{denoiser}', 'shannon_vector.qza'),
+        sample_info = join(QIIME2_INTERIM, 'sample_info.tsv')
+    singularity:
+        QIIME2_IMAGE
+    output:
+        join(QIIME2_INTERIM, '{denoiser}', 'shannon_group-significance.qzv')
+    shell:
+        'qiime diversity alpha-group-significance '
+        ' --i-alpha-diversity {input.alpha} '
+        '--m-metadata-file {input.sample_info} '
+        '--o-visualization {output} '
+        
+rule qiime2_otu_correlations:
+    input:
+        alpha = join(QIIME2_INTERIM, '{denoiser}', 'observed_otus_vector.qza'),
+        sample_info = join(QIIME2_INTERIM, 'sample_info.tsv')
+    singularity:
+        QIIME2_IMAGE
+    output:
+        join(QIIME2_INTERIM, '{denoiser}', 'otus_group-significance.qzv')
+    shell:
+        'qiime diversity alpha-group-significance '
+        ' --i-alpha-diversity {input.alpha} '
+        '--m-metadata-file {input.sample_info} '
+        '--o-visualization {output} '
+
+rule qiime2_faith_pd_correlations:
+    input:
+        alpha = join(QIIME2_INTERIM, '{denoiser}', 'faith_pd_vector.qza'),
+        sample_info = join(QIIME2_INTERIM, 'sample_info.tsv')
+    singularity:
+        QIIME2_IMAGE
+    output:
+        join(QIIME2_INTERIM, '{denoiser}', 'faith_pd_group-significance.qzv')
+    shell:
+        'qiime diversity alpha-group-significance '
+        ' --i-alpha-diversity {input.alpha} '
+        '--m-metadata-file {input.sample_info} '
+        '--o-visualization {output} '

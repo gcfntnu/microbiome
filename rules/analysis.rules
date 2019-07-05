@@ -1,0 +1,13 @@
+include:
+    'analysis/qiime2_diversity.rules'
+
+DENOISERS = config['quant']['denoiser'].split(',')
+DB = config['db']['reference_db'].split(',')
+
+rule qiime2_analysis_all:
+    input:
+        expand(join(QIIME2_INTERIM, '{denoiser}', 'shannon_vector.qza'), denoiser=DENOISERS),
+        expand(join(QIIME2_INTERIM, '{denoiser}', 'alpha_rarefaction.qzv'), denoiser=DENOISERS),
+        expand(join(QIIME2_INTERIM, '{denoiser}', 'shannon_group-significance.qzv'), denoiser=DENOISERS),
+        expand(join(QIIME2_INTERIM, '{denoiser}', 'faith_pd_group-significance.qzv'), denoiser=DENOISERS),
+        expand(join(QIIME2_INTERIM, '{denoiser}', 'otus_group-significance.qzv'), denoiser=DENOISERS)

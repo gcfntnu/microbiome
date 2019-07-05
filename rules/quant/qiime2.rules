@@ -359,10 +359,24 @@ rule qiime2_export_phylo_tree:
     shell:
         'qiime tools export --input-path {input} --output-path {params.out_dir}'
 
+
+rule qiime2_repseq_fasta:
+    input:
+        join(QIIME2_INTERIM, '{denoiser}', 'rep-seqs.qza')
+    output:
+        join(QIIME2_INTERIM, '{denoiser}', 'dna-sequences.fasta')
+    params:
+        out = join(QIIME2_INTERIM, '{denoiser}')
+    singularity:
+       QIIME2_IMAGE 
+    shell:
+        'qiime tools export --input-path {input} --output-path {params.out}'
+        
 rule qiime2_biom_to_phyloseq:
     input:
         biom = join(QIIME2_PROCESSED, '{denoiser}', '{db}', 'table.biom'),
-        tree = join(QIIME2_PROCESSED, '{denoiser}', 'tree.nwk')
+        tree = join(QIIME2_PROCESSED, '{denoiser}', 'tree.nwk'),
+        fasta = join(QIIME2_INTERIM, '{denoiser}', 'dna-sequences.fasta')
     output:
         join(QIIME2_PROCESSED, '{denoiser}', '{db}', 'physeq.rds')
     params:
@@ -382,7 +396,7 @@ rule qiime2_biom_to_tsv:
     shell:
         'biom convert -i {input} -o {output} --to-tsv '
 
-rule qiime2_tsv_MA:
+rule qiime2_bio_to_microbiome_analyst:
     input:
         join(QIIME2_PROCESSED, '{denoiser}', '{db}', 'table.tsv')
     output:

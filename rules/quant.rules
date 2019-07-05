@@ -12,3 +12,14 @@ include:
     'filter.rules'
 include:
     'quant/qiime2.rules'
+
+DENOISERS = config['quant']['denoiser'].split(',')
+DB = config['db']['reference_db'].split(',')
+
+rule qiime2_quant_all:
+    input:
+        stats = expand(join(QIIME2_INTERIM, '{denoiser}', 'stats.qzv'), denoiser=DENOISERS),
+        tables = expand(join(QIIME2_INTERIM, '{denoiser}', 'table.qzv'), denoiser=DENOISERS),
+        rep_seqs = expand(join(QIIME2_INTERIM, '{denoiser}', 'rep-seqs.qzv'), denoiser=DENOISERS),
+        taxa = expand(join(QIIME2_INTERIM, '{denoiser}', '{db}', 'taxonomy.qzv'), denoiser=DENOISERS, db=DB),
+        physeq = expand(join(QIIME2_PROCESSED, '{denoiser}', '{db}', 'physeq.rds'), denoiser=DENOISERS, db=DB)

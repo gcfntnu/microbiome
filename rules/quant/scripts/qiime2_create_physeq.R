@@ -5,8 +5,9 @@ suppressWarnings(library(phyloseq))
 
 biom.fn <- args[1]
 tree.fn <- args[2]
-out.fn <- args[3]
-DB = args[4]
+fasta.fn <- args[3]
+out.fn <- args[4]
+DB = args[5]
 
 parse.qiime2.silva <- function(char.vec){
     char.vec = gsub("^[[:space:]]{1,}", "", char.vec)
@@ -46,7 +47,7 @@ if (DB == "SILVA" | DB == "silva"){
 }
 
 
-OTU <- import_biom(biom.fn, parseFunction=parseFunction, treefilename=tree.fn)
+OTU <- import_biom(biom.fn, parseFunction=parseFunction, treefilename=tree.fn, refseqfilename=fasta.fn)
 TAX <- tax_table(OTU)
 if (dim(TAX)[2] > 7){
     # lets not use the NA col of parse_taxonomy_greengenes (All NA is `Unassigned`)

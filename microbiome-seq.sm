@@ -76,11 +76,13 @@ if not 'SAMPLES' in locals():
 
 include:
     'rules/quant.rules'
+include:
+    'rules/analysis.rules'
 
 
-rule sample_info:
+rule _sample_info:
     output:
-        join(PROCESSED_DIR, 'sample_info.tsv')
+        join(PROCESSED_DIR, '_sample_info.tsv')
     singularity:
         'docker://fastgenomics/pandas:0.22-p36-v3'
     params:
