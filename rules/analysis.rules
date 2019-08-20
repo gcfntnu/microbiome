@@ -1,10 +1,13 @@
 include:
     'analysis/qiime2_diversity.rules'
+include:
+    'analysis/qiime2_filter.rules'
 
 DENOISERS = config['quant']['denoiser'].split(',')
 DB = config['db']['reference_db'].split(',')
 
-rule qiime2_analysis_all:
+
+rule qiime2_analysis_alpha_diversity_all:
     input:
         expand(join(QIIME2_INTERIM, '{denoiser}', 'shannon_vector.qza'), denoiser=DENOISERS),
         expand(join(QIIME2_INTERIM, '{denoiser}', 'alpha_rarefaction.qzv'), denoiser=DENOISERS),

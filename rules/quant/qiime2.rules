@@ -254,10 +254,18 @@ rule qiime2_export_taxa_tsv:
     shell:
         'qiime tools export --input-path {input.taxa} --output-path {params.out_dir}'
 
+rule qiime2_taxonomy_biom:
+    input:
+        taxa =  join(QIIME2_INTERIM, '{denoiser}', '{db}', 'taxonomy.tsv')
+    output:
+        temp(join(QIIME2_INTERIM, '{denoiser}', '{db}', '_taxonomy.biomtsv'))
+    shell:
+        'sed -e "1s/Feature ID/#OTUID/g" -e "1s/Taxon/taxonomy/g" -e "1s/Confidence/confidence/g" {input} > {output}'
+
 rule qiime2_add_taxa_to_biom:
     input:
         biom = join(QIIME2_INTERIM, '{denoiser}', 'feature-table.biom'),
-        taxa = join(QIIME2_INTERIM, '{denoiser}', '{db}', 'taxonomy.tsv')
+        taxa = join(QIIME2_INTERIM, '{denoiser}', '{db}', '_taxonomy.biomtsv')
     output:
         join(QIIME2_INTERIM, '{denoiser}', '{db}', 'table.biom')
     singularity:

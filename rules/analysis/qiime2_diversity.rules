@@ -37,7 +37,9 @@ rule qiime2_diversity:
     singularity:
         QIIME2_IMAGE
     output:
-        join(QIIME2_INTERIM, '{denoiser}', 'shannon_vector.qza')
+        join(QIIME2_INTERIM, '{denoiser}', 'shannon_vector.qza'),
+        join(QIIME2_INTERIM, '{denoiser}', 'observed_otus_vector.qza'),
+        join(QIIME2_INTERIM, '{denoiser}', 'faith_pd_vector.qza')
     shell:
         'qiime diversity core-metrics-phylogenetic '
         '--i-table {input.table} '
@@ -113,3 +115,8 @@ rule qiime2_faith_pd_correlations:
         ' --i-alpha-diversity {input.alpha} '
         '--m-metadata-file {input.sample_info} '
         '--o-visualization {output} '
+
+
+rule qiime2_correlations:
+    input:
+        expand(join(QIIME2_INTERIM, '{denoiser}', 'faith_pd_group-significance.qzv'), denoiser=['GG', 'SILVA'])
