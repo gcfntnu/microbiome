@@ -11,52 +11,15 @@ Authors:
 Arnar Flatberg / flatberg <arnar.flatberg@ntnu.no>
 """
 
-from os.path import join, abspath, dirname
-from os import makedirs, environ
-import sys
-import collections
-import yaml
 
-from snakemake.workflow import srcdir
-from snakemake.logging import logger
-from snakemake.utils import update_config
+from os import environ
+from os.path import abspath, join
 
-def update_config2(config, extra_config):
-    """Recursively update dictionary config with overwrite_config.
 
-    From Snakemake codebase (update_config), UPDATE_CONFIG2 does not overwrite if key exist!
-
-    See
-    http://stackoverflow.com/questions/3232943/update-value-of-a-nested-dictionary-of-varying-depth
-    for details.
-
-    Args:
-      config (dict): dictionary to update
-      overwrite_config (dict): dictionary whose items will overwrite those in config
-
-    """
-    
-    def _update(d, u):
-        for (key, value) in u.items():
-            if (isinstance(value, collections.Mapping)):
-                d[key] = _update(d.get(key, {}), value)
-            else:
-                if not key in d:
-                    d[key] = value
-        return d
-    return _update(config, extra_config)
-
-TMPDIR = os.environ.get('TMPDIR', '/tmp')
-# environment variables can override config file
-INTERIM_DIR = environ.get('GCF-INTERIM') or config.get('interim_dir', 'data/tmp/')
-makedirs(INTERIM_DIR, exist_ok=True)
-EXT_DIR = environ.get('GCF-EXT') or config.get('ext_dir', 'data/ext')
-makedirs(EXT_DIR, exist_ok=True)
-FASTQ_DIR =  environ.get('GCF-FASTQ') or config.get('fastq_dir','data/raw/fastq')
-makedirs(FASTQ_DIR, exist_ok=True)
-PROCESSED_DIR =  environ.get('GCF-PROCESSED') or config.get('processed_dir', 'data/processed')
-makedirs(PROCESSED_DIR, exist_ok=True)
-REF_DIR = environ.get('GCF-REF') or config.get('ref_dir')
+GCFDB_DIR = environ.get('GCF_DB') or config.get('gcfdb_dir', 'src/gcfdb')
+GCFDB_DIR = abspath(GCFDB_DIR)
+include:
+    join(GCFDB_DIR, 'utils.py')
 
 extra_conf_fn = srcdir('microbiome-seq.config')
 if os.path.exists(extra_conf_fn):
@@ -65,26 +28,38 @@ if os.path.exists(extra_conf_fn):
         # original config will override extra config on shared items
         update_config2(config, c)
 
-libprep_fn = srcdir('libprep.config')
-with open(libprep_fn) as fh:
-    LIBPREP_CONF  = yaml.load(fh) or {}
-kit = config.get('libprepkit', 'default')
-LIBPREP = LIBPREP_CONF[kit]
+print(config)
 
+#fixme: move this part
+if LIBPREP['name'].lower().startswith('qiaseq'):
+    # we cut 11 first bases in both reads
+    read_geometry = config.get('read_geometry')
+    if read_geometry:
+        read_geometry = [int(i) for i in read_geometry]
+        read_geometry[0] -= 11
+        read_geometry[0] -= 11
+        config['read_geometry'] = read_geometry
+
+        
 if not 'SAMPLES' in locals():
     SAMPLES = list(config.get('samples', {}).keys())
 
+include:
+    'rules/db.rules'
+include:
+    'rules/filter.rules'
 include:
     'rules/quant.rules'
 include:
     'rules/analysis.rules'
 
 
-rule _sample_info:
+
+rule sample_info:
     output:
-        join(PROCESSED_DIR, '_sample_info.tsv')
+        join(INTERIM_DIR, 'sample_info.tsv')
     singularity:
-        'docker://fastgenomics/pandas:0.22-p36-v3'
+        'docker://gcfntnu/python-base:3.7'
     params:
         script = srcdir('scripts/create_sampleinfo.py')
     shell:
@@ -97,11 +72,11 @@ onsuccess:
     import yaml
     
     dt = datetime.now()
-    final_conf_fn = 'microbiome-seq_{}_{}_{}.success.config'.format(dt.year, dt.month, dt.day)
+    final_conf_fn = 'rna-seq_{}_{}_{}.success.config'.format(dt.year, dt.month, dt.day)
     if os.path.exists(final_conf_fn):
         base_fn = copy.copy(final_conf_fn)
         for i in range(999):
-            final_conf_fn = 'microbiome-seq_{}_{}_{}_#{}.success.config'.format(dt.year, dt.month, dt.day, i)
+            final_conf_fn = 'rna-seq_{}_{}_{}_#{}.success.config'.format(dt.year, dt.month, dt.day, i)
             if not os.path.exists(final_conf_fn):
                 break
     if os.path.exists(final_conf_fn):

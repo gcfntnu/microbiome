@@ -5,8 +5,6 @@ if os.path.exists(extra_conf_fn):
         c  = yaml.load(fh) or {}
         update_config2(config, c)
 
-BIO_SOURCE = config.get('bio_source')
-
 if 'REF_DIR' in locals() and REF_DIR is not None:
     pass
 elif 'ref_dir' in config:
@@ -17,6 +15,3 @@ elif 'reference_db' in config['db']:
     REF_DIR = join(EXT_DIR, ref, DB_CONF.get('version'))
 else:
     raise ValueError('Reference dir missing. Check config or other ways for ref dir setup')
-
-include:
-    'db/qiime2.db'

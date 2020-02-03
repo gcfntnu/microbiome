@@ -1,5 +1,4 @@
-QIIME2_INTERIM = join(QUANT_INTERIM, 'qiime2')
-QIIME2_PROCESSED = join(QUANT_PROCESSED, 'qiime2')
+
 
 rule physeq_diversity_biosample:
     input:

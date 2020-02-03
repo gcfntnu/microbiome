@@ -3,14 +3,13 @@
 """
 
 QIIME2_INTERIM = join(QUANT_INTERIM, 'qiime2')
-QIIME2_PROCESSED = join(QUANT_PROCESSED, 'qiime2')
 
 QIIME2_IMAGE = 'docker://gcfntnu/qiime2:{}'.format(config['quant']['qiime2']['version'])
 
+PE = len(config['read_geometry']) > 1
+
 include:
     '../db/qiime2.db'
-
-PE = len(config['read_geometry']) > 1
 
 if PE:
     rule qiime2_manifest:
@@ -160,7 +159,7 @@ rule qiime2_vis_stats_dada2:
     
 rule qiime2_sample_info:
     input:
-        join(PROCESSED_DIR, 'sample_info.tsv')
+        join(INTERIM_DIR, 'sample_info.tsv')
     output:
         join(QIIME2_INTERIM, 'sample_info.tsv')
     shell:
@@ -291,7 +290,7 @@ rule qiime2_convert_biom:
         biom = join(QIIME2_INTERIM, '{denoiser}', '{db}', 'table.biom'),
         sample_info = join(QIIME2_INTERIM, '_sample_info_biom.txt')
     output:
-        join(QIIME2_PROCESSED, '{denoiser}', '{db}', 'table.biom')
+        join(QIIME2_INTERIM, '{denoiser}', '{db}', 'table.biom')
     singularity:
         QIIME2_IMAGE
     params:
@@ -355,7 +354,7 @@ rule qiime2_export_phylo_tree:
     input:
         join(QIIME2_INTERIM, '{denoiser}', 'rooted-tree.qza')
     output:
-        join(QIIME2_PROCESSED, '{denoiser}', 'tree.nwk')
+        join(QIIME2_INTERIM, '{denoiser}', 'tree.nwk')
     conda:
         'envs/qiime2.yml'
     singularity:
@@ -363,7 +362,7 @@ rule qiime2_export_phylo_tree:
     threads:
         1
     params:
-        out_dir = join(QIIME2_PROCESSED, '{denoiser}')
+        out_dir = join(QIIME2_INTERIM, '{denoiser}')
     shell:
         'qiime tools export --input-path {input} --output-path {params.out_dir}'
 
@@ -382,11 +381,11 @@ rule qiime2_repseq_fasta:
         
 rule qiime2_biom_to_phyloseq:
     input:
-        biom = join(QIIME2_PROCESSED, '{denoiser}', '{db}', 'table.biom'),
-        tree = join(QIIME2_PROCESSED, '{denoiser}', 'tree.nwk'),
+        biom = join(QIIME2_INTERIM, '{denoiser}', '{db}', 'table.biom'),
+        tree = join(QIIME2_INTERIM, '{denoiser}', 'tree.nwk'),
         fasta = join(QIIME2_INTERIM, '{denoiser}', 'dna-sequences.fasta')
     output:
-        join(QIIME2_PROCESSED, '{denoiser}', '{db}', 'physeq.rds')
+        join(QIIME2_INTERIM, '{denoiser}', '{db}', 'physeq.rds')
     params:
         script = srcdir('scripts/qiime2_create_physeq.R')
     singularity:
@@ -396,9 +395,9 @@ rule qiime2_biom_to_phyloseq:
         
 rule qiime2_biom_to_tsv:
     input:
-        biom = join(QIIME2_PROCESSED, '{denoiser}', '{db}', 'table.biom')
+        biom = join(QIIME2_INTERIM, '{denoiser}', '{db}', 'table.biom')
     output:
-        join(QIIME2_PROCESSED, '{denoiser}', '{db}', 'table.tsv')
+        join(QIIME2_INTERIM, '{denoiser}', '{db}', 'table.tsv')
     singularity:
        QIIME2_IMAGE 
     shell:
@@ -406,6 +405,6 @@ rule qiime2_biom_to_tsv:
 
 rule qiime2_bio_to_microbiome_analyst:
     input:
-        join(QIIME2_PROCESSED, '{denoiser}', '{db}', 'table.tsv')
+        join(QIIME2_INTERIM, '{denoiser}', '{db}', 'table.tsv')
     output:
         

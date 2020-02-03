@@ -2,7 +2,14 @@
 """
 Snakemake rules for filtering fastq files before analysis.
 
-Fastp used for standard filtering.
+Fastp used for standard filtering
+
+Filter steps:
+-------------
+
+1. Adapter trimming, quality filter (_get_trimmed_R1)
+
+
 """
 import os
 from os.path import join, basename
@@ -14,7 +21,7 @@ if os.path.exists(extra_conf_fn):
         c  = yaml.load(fh) or {}
         update_config2(config, c)
 
-FILTER_INTERIM = join(INTERIM_DIR, 'microbiome', 'filter')
+FILTER_INTERIM = join(INTERIM_DIR, 'rnaseq', 'filter')
 FASTQ_DIR = config.get('fastq_dir', 'data/raw/fastq')
 while FASTQ_DIR.endswith(os.path.sep):
     FASTQ_DIR = FASTQ_DIR[:-1]
@@ -54,13 +61,11 @@ def get_raw_fastq(wildcards):
 
 include:
     'filter/fastp.rules'
-
     
 def get_processed_fastq(wildcards):
-    ZIP_FILTERED_FASTQ = True #FIXME: options
-    DST_PTH = join(FILTER_INTERIM, '{}', 'trimmed', config['filter']['trimmer'])
+    ZIP_FILTERED_FASTQ = False #FIXME: options
+    DST_PTH = join(FILTER_INTERIM, '{}', 'trimmed', config['filter']['trim']['trimmer'])
     fastq = get_raw_fastq(wildcards)
-        
     R1 = [i.split(FASTQ_DIR)[-1][1:] for i in fastq['R1']]
     if not ZIP_FILTERED_FASTQ:
         R1 = [i.split('.gz')[0] for i in R1 if i.endswith('.gz')]
@@ -90,5 +95,15 @@ def get_processed_fastq(wildcards):
         out = {'R1': R1, 'R2': R2}
     else:
         out = {'R1': R1}
-        
     return out
+
+
+rule _filter:
+    input:
+        unpack(get_processed_fastq)
+    output:
+        temp(touch('{sample}.filtered'))
+
+rule filter_all:
+    input:
+        expand(rules._filter.output, sample=SAMPLES)
