@@ -6,7 +6,6 @@ script.name <- sub(file.arg.name, "", initial.options[grep("--file=", initial.op
 script.basename <- dirname(script.name)
 source(file=file.path(script.basename, "physeq_common.R"))
 
-
 suppressWarnings(library(ggplot2))
 library(phyloseq)
 library(stringr)
@@ -40,7 +39,7 @@ if (!is.null(args$block)){
     color <- NULL
 }
 
-p <- plot_richness(PF, x=x, color=color, measures=c("Chao1","Shannon"))
+p <- plot_richness(PF, x=x, color=color, measures=c("Chao1", "Shannon"))
 
 
 

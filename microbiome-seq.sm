@@ -28,24 +28,12 @@ if os.path.exists(extra_conf_fn):
         # original config will override extra config on shared items
         update_config2(config, c)
 
-print(config)
-
-#fixme: move this part
-if LIBPREP['name'].lower().startswith('qiaseq'):
-    # we cut 11 first bases in both reads
-    read_geometry = config.get('read_geometry')
-    if read_geometry:
-        read_geometry = [int(i) for i in read_geometry]
-        read_geometry[0] -= 11
-        read_geometry[0] -= 11
-        config['read_geometry'] = read_geometry
-
         
 if not 'SAMPLES' in locals():
     SAMPLES = list(config.get('samples', {}).keys())
 
 include:
-    'rules/db.rules'
+    'rules/reference_db.rules'
 include:
     'rules/filter.rules'
 include:
@@ -53,17 +41,6 @@ include:
 include:
     'rules/analysis.rules'
 
-
-
-rule sample_info:
-    output:
-        join(INTERIM_DIR, 'sample_info.tsv')
-    singularity:
-        'docker://gcfntnu/python-base:3.7'
-    params:
-        script = srcdir('scripts/create_sampleinfo.py')
-    shell:
-        'python {params.script} config.yaml > {output}'
 
 onsuccess:
     # write config

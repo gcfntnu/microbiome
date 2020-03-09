@@ -1,9 +1,11 @@
 #/usr/bin/env Rscript
-
-if (!require(argparse)) {
-    install.packages("argparse", repos="http://cran.rstudio.com")
-    library("argparse")
+### library imports ###     
+if (!require(phyloseq)) {
+    stop('This script needs the phyloseq package to be available')
 }
+suppressWarnings(library(phyloseq))
+library(argparse)
+
 
 
 parser <- ArgumentParser()
@@ -36,7 +38,9 @@ parser$add_argument("--test", type="character",
 
 parser$add_argument("--output-dir", default="models", help="Output prefix [optional]")
 
-parser$add_argument("--logfile ", help="Log filename")
+parser$add_argument("--logfile", help="Log filename")
+
+parser$add_argument("--threads", help="number of threads", default=1)
 
 parser$add_argument("--save-workspace", action="store_true",
                     default=FALSE, help="Save workspace to [output_dir]/workspace.Rdata")
@@ -117,19 +121,6 @@ read.sample.info <- function(sample.info.fn, condition.name, ref.level=NULL, blo
     
     sample.info
 }
-
-
-### library imports ###     
-if (!require(phyloseq)) {
-    stop('This script needs the phyloseq package to be available')
-}
-suppressWarnings(library(phyloseq))
-
-if (!require(ggplot2)) {
-    stop('This script needs the ggplot2 package to be available')
-}
-suppressWarnings(library(ggplot2))
-###
 
 
 

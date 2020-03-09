@@ -5,14 +5,6 @@ ADAPTER = config.get('adapter') or LIBPREP['single_end'].get('adapter')
 ADAPTER2 = config.get('adapter2') or LIBPREP['paired_end'].get('adapter2')
 PE = len(config['read_geometry']) > 1
 
-
-rule fastp_version:
-    output:
-        'logs/fastp.version'
-    params:
-        ver = subprocess.check_output(['fastp', '--version'], stderr=subprocess.STDOUT).strip().split()[-1].decode()
-    shell:
-        'fastp --version 2> {output}'
         
 rule fastp_interleave_fastq:
     input:
@@ -159,7 +151,7 @@ else:
         threads:
             3        
         params:
-            args = '--overrepresentation_analysis --overrepresentation_sampling 10000 -A -Q -L -G'
+            args = '--overrepresentation_analysis --overrepresentation_sampling 10000 -A -Q -L '
         log:
             json = 'logs/{sample}/{sample}.fastp.json'
         singularity:
