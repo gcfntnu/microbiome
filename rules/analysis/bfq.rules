@@ -2,6 +2,7 @@
 """Rules for output to bfq pipeline. Main rule: bfq_all
 """
 import glob
+import os
 
 
 BFQ_INTERIM = join(INTERIM_DIR, 'microbiome', 'bfq')
@@ -105,10 +106,31 @@ rule bfq_exprs:
         for src, dst  in zip(input, output):
             shell('ln -sr {src} {dst}')
 
+rule bfq_qiime2_data:
+    output:
+        directory(join(BFQ_INTERIM, 'qiime2'))
+    run:
+        patt = os.path.join(QIIME2_INTERIM, '*.qz*')
+        os.makedirs(output[0], exist_ok=True)
+        for src in glob.glob(patt):
+            bn = os.path.basename(src)
+            dst = os.path.join(output[0], bn)
+            print(src, dst)
+            shell('ln -sr {src} {dst}')
 
+        patt2 = os.path.join(QIIME2_INTERIM, 'regions', '*', '*.qz*')
+        for src in glob.glob(patt2):
+            bn = os.path.basename(src)
+            region = os.path.basename(os.path.dirname(src))
+            out_dir = os.path.join(output[0], 'regions', region)
+            os.makedirs(out_dir, exist_ok=True)
+            dst = os.path.join(out_dir, bn)
+            shell('ln -sr {src} {dst}')
+            
 rule bfq_all:
     input:
         rules.bfq_exprs.output,
         rules.bfq_taxonomy_log.output,
         rules.bfq_dada2_log.output,
-        rules.bfq_rpca_log.output
+        rules.bfq_rpca_log.output,
+        rules.bfq_qiime2_data.output
