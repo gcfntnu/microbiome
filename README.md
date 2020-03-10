@@ -1,8 +1,8 @@
-# rna-seq
-Micribiome sequencing pipeline
+# microbiome
+Micribiome sequencing pipeline at GCF (Genomics Core Faciltiy, Trondheim)
 
 ### Introduction
-microbiome-seq: 16S microbiome sequencing pipeline
+microbiome: Hypervariable region analysis qiime2 based pipeline
 
 The pipeline is built using [Snakemake](https://snakemake.readthedocs.io).
 
