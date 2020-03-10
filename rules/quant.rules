@@ -6,20 +6,14 @@ if os.path.exists(extra_conf_fn):
         update_config2(config, c)
 
 QUANT_INTERIM = join(INTERIM_DIR, 'microbiome', 'quant')
-QUANT_PROCESSED = join(PROCESSED_DIR, 'microbiome', 'quant')
 
 include:
-    'filter.rules'
-include:
-    'quant/qiime2.rules'
+    'quant/qiime2_py.rules'
 
 DENOISERS = config['quant']['denoiser'].split(',')
-DB = config['db']['reference_db'].split(',')
+DB = config['db']['reference_db']
+
 
 rule qiime2_quant_all:
     input:
-        stats = expand(join(QIIME2_INTERIM, '{denoiser}', 'stats.qzv'), denoiser=DENOISERS),
-        tables = expand(join(QIIME2_INTERIM, '{denoiser}', 'table.qzv'), denoiser=DENOISERS),
-        rep_seqs = expand(join(QIIME2_INTERIM, '{denoiser}', 'rep-seqs.qzv'), denoiser=DENOISERS),
-        taxa = expand(join(QIIME2_INTERIM, '{denoiser}', '{db}', 'taxonomy.qzv'), denoiser=DENOISERS, db=DB),
-        physeq = expand(join(QIIME2_PROCESSED, '{denoiser}', '{db}', 'physeq.rds'), denoiser=DENOISERS, db=DB)
+        join(QUANT_INTERIM, 'qiime2', config['db']['reference_db'].lower(), 'physeq.rds')
