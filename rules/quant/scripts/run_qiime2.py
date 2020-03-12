@@ -343,7 +343,7 @@ def create_biom(table, taxonomy, sequence, features_meta=None, samples_meta=None
     if samples_meta:
         SAMPLES = samples_meta.to_dataframe()
         # be gentle with json parsers and rm nan
-        SAMPLES,fillna(value='', inplace=True)
+        SAMPLES.fillna(value='', inplace=True)
         md_samples = SAMPLES.to_dict(orient='index')
         T.add_metadata(md_samples, axis='sample')
     if features_meta:
