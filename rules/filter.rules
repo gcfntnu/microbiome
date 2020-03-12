@@ -57,6 +57,7 @@ def get_raw_fastq(wildcards):
         R2 = [join(FASTQ_DIR, i) for i in R2]
         return {'R1': R1, 'R2':R2}
     else:
+        print(R1)
         return {'R1': R1}
 
 include:
