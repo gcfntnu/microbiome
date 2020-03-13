@@ -73,7 +73,7 @@ rule bfq_rpca:
 rule bfq_rpca_log:
     input:
         ord = join(BFQ_INTERIM, 'logs', 'deicode', 'ordination.txt'),
-        sample_info = join(QIIME2_INTERIM, 'adata_samples.tsv')
+        sample_info = join(QIIME2_INTERIM, 'sample_info.tsv')
     output:
         join(BFQ_INTERIM, 'logs', 'deicode', 'ordination_samples.txt')
     shell:
@@ -86,12 +86,12 @@ rule bfq_rpca_log:
 rule bfq_exprs:
     input:
         physeq = join(QIIME2_INTERIM, 'physeq.rds'),
-        biom = join(QIIME2_INTERIM, 'adata.biom'),
-        table = join(QIIME2_INTERIM, 'adata.tsv'),
+        biom = join(QIIME2_INTERIM, 'table.biom'),
+        table = join(QIIME2_INTERIM, 'table.tsv'),
         seq = join(QIIME2_INTERIM, 'dna-sequences.fasta'),
         tree = join(QIIME2_INTERIM, 'tree.nwk'),
-        feature_info = join(QIIME2_INTERIM, 'adata_features.tsv'),
-        sample_info = join(QIIME2_INTERIM, 'adata_samples.tsv')
+        feature_info = join(QIIME2_INTERIM, 'feature_info.tsv'),
+        sample_info = join(QIIME2_INTERIM, 'sample_info.tsv')
     params:
         outdir = join(BFQ_INTERIM, 'exprs')
     output:
@@ -100,7 +100,7 @@ rule bfq_exprs:
         table = join(BFQ_INTERIM, 'exprs', 'table.tsv'),
         seq = join(BFQ_INTERIM, 'exprs', 'dna-sequences.fasta'),
         tree = join(BFQ_INTERIM, 'exprs', 'tree.nwk'),
-        feature_info = join(BFQ_INTERIM, 'exprs', 'taxonomy.tsv'),
+        feature_info = join(BFQ_INTERIM, 'exprs', 'feature_info.tsv'),
         sample_info = join(BFQ_INTERIM, 'exprs', 'samples_info.tsv')
     run:
         for src, dst  in zip(input, output):

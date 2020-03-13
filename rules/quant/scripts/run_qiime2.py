@@ -13,6 +13,8 @@ import glob
 import itertools
 import collections
 
+import yaml
+
 import qiime2
 from qiime2 import Artifact, Metadata
 from qiime2.plugins import metadata, feature_table, alignment, phylogeny, diversity, feature_classifier, taxa, dada2, demux
@@ -22,32 +24,36 @@ import pandas as pd
 __doc__ = "Analysis of microbiome fastq files with QIIME2"
 __version__ = '0.1'
 
-PRIMERS = {}
-_qiaseq_primers = {}
-_qiaseq_primers["V1V2"] = "AGRGTTTGATYMTGGCTC-CTGCTGCCTYCCGTA"  # 8F - 338R
-_qiaseq_primers["V2V3"] = "GGCGNACGGGTGAGTAA-WTTACCGCGGCTGCTGG"
-_qiaseq_primers["V3V4"] = "CCTACGGGNGGCWGCAG-GACTACHVGGGTATCTAATCC"  # 341F - 805R
-_qiaseq_primers["V4V5"] = "GTGYCAGCMGCCGCGGTAA-CCGYCAATTYMTTTRAGTTT"
-_qiaseq_primers["V5V7"] = "GGATTAGATACCCBRGTAGTC-ACGTCRTCCCCDCCTTCCTC"
-_qiaseq_primers["V7V9"] = "YAACGAGCGMRACCC-TACGGYTACCTTGTTAYGACTT"
-_qiaseq_primers["ITS1"] = "CTTGGTCATTTAGAGGAAGTAA-GCTGCGTTCTTCATCGATGC"  # ITS1F - ITS2R
-_qiaseq_primers["ITS2"] = "GTGARTCATCGARTCTTTGAA-CTBTTVCCKCTTCACTCG"  # ITS86F - ITS4_KYO3
-_ilmn_v4_primers = {}
-_ilmn_v4_primers["V4"] = "GTGYCAGCMGCCGCGGTAA-GGACTACNVGGGTWTCTAAT"
-PRIMERS["qiaseq"] = _qiaseq_primers
-PRIMERS["ilmn_v4"] = _ilmn_v4_primers
-PRIMERS["QIAseq_16S_ITS_Region_Panels"] = _qiaseq_primers
-PRIMERS["16S_Metagenomic_Sequencing_Library_Prep"] = _ilmn_v4_primers
+def available_primers(libprep_conf):
+    primers = {}
+    with open(libprep_conf) as fh:
+        c = yaml.load(fh)
+    for libprepkit, conf in c.items():
+        if 'primers' in conf:
+            libprep_name = conf['name']
+            primers[libprep_name] = {}
+            for region, seq in conf['primers'].items():
+                primers[libprep_name][region] = seq
+    return primers
+
+def available_classifiers(classifier_dir, level='99'):
+    available = []
+    for fn in os.listdir(classifier_dir):
+        if fn.startswith(level):
+            name = fn.split(level + '_')[-1]
+            available.append(name)
+    return available
 
 def get_parser():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("input", help="input fastq files", nargs="+")
     parser.add_argument("--output-dir", help="output directory", required=True)
     parser.add_argument("--sample-info", help="sample metadata", required=True)
-    parser.add_argument("--libprep", help="library preparation kit", choices=list(PRIMERS.keys()), required=True)
+    parser.add_argument("--libprep", help="library preparation kit name", required=True)
     parser.add_argument("--regions", help="comma separated list of variable regions", required=False)
-    parser.add_argument("--taxonomy-db", help="reference database", choices=['silva', 'greengenes', 'universal'], required=True)
-    parser.add_argument("--classifier-dir", help="path to prebuild classifiers", required=True)
+    parser.add_argument("--taxonomy-db", help="reference database", choices=['silva', 'greengenes', 'unite'], required=True)
+    parser.add_argument("--classifier-dir", help="path to prebuildt classifiers", required=True)
+    parser.add_argument("--libprep-config", help="full path to gcfdb libprep.config", required=True)
     parser.add_argument("--filter-region-count", help="minimum number of reads within a region", type=int, default=500)
     parser.add_argument("--min-confidence", help="minimum accepted confidence for feature classifier", type=float, default=0.8)
     parser.add_argument("--build-tree", help="output phylogenetic tree", action="store_true")
@@ -125,15 +131,21 @@ def pandas_manifest(R1):
 
 
 def import_data_worker(manifest_fn):
-    return Artifact.import_data('SampleData[PairedEndSequencesWithQuality]', manifest_fn,
-                                view_type='PairedEndFastqManifestPhred33V2')
+    cmd = 'qiime tools import --type SampleData[PairedEndSequencesWithQuality] --input-path {} --input-format PairedEndFastqManifestPhred33V2 --output-path {}'
+    output_fn = manifest_fn.split('_')[0] + '.qza'
+    cmd = cmd.format(manifest_fn, output_fn)
+    print(cmd)
+    subprocess.check_call(cmd, shell=True)
+    
+    #return Artifact.import_data('SampleData[PairedEndSequencesWithQuality]', manifest_fn,
+    #                            view_type='PairedEndFastqManifestPhred33V2')
 
 
-def demultiplex_manifests(fastq_files, regions=None, libprep='qiaseq', split_on_header=True, threads=4):
+def demultiplex_manifests(fastq_files, primers, regions=None, split_on_header=True, threads=4):
     """Demultiplex fastq files into variable region origins.
     """
-    if regions == None and libprep is not None:
-        regions = list(PRIMERS[libprep].keys())
+    if regions is not None:
+        primers  = {k:v for k, v in primers.items() if k in regions}
     r1 = [abspath(i) for i in fastq_files if '_R1.fastq' in i]
     rundir = mkdtemp() #run in a tmpdir
     cwd = os.path.abspath(os.curdir)
@@ -143,7 +155,7 @@ def demultiplex_manifests(fastq_files, regions=None, libprep='qiaseq', split_on_
             args_iter = itertools.product(r1, regions)
             pool.starmap(seqkit_worker, args_iter)
         else:
-            pool.map(cutadapt_worker, r1, PRIMERS[libprep])
+            pool.map(cutadapt_worker, r1, primer_subset)
 
     manifest_filenames = {}
     for r in regions:
@@ -155,8 +167,12 @@ def demultiplex_manifests(fastq_files, regions=None, libprep='qiaseq', split_on_
             manifest_filenames[r] = manifest_fn
 
     adata = {}
+    with mp.Pool(threads) as pool:
+        pool.map(import_data_worker, manifest_filenames.values())
+        
     for r, fn in manifest_filenames.items():
-        adata[r] = import_data_worker(fn)
+        print('importing data ({}) from {}'.format(r, fn))
+        adata[r] = Artifact.load(fn.split('_')[0] + '.qza')
 
     # clean up tmpdir
     os.chdir(cwd)
@@ -170,6 +186,7 @@ def sequence_counts(adata, min_count=500):
     counts = {}
     merged_counts = collections.defaultdict(int)
     for k, v in adata.items():
+        print('summarizing counts for region: {}'.format(k))
         s = demux.visualizers.summarize(v)
         fn = glob.glob(str(s.visualization._archiver.path) + '/*/data/per-sample-fastq-counts.csv')[0]
         df = pd.read_csv(fn)
@@ -335,7 +352,7 @@ def create_biom(table, taxonomy, sequence, features_meta=None, samples_meta=None
     if samples_meta:
         SAMPLES = samples_meta.to_dataframe()
         # be gentle with json parsers and rm nan
-        SAMPLES,fillna(value='', inplace=True)
+        SAMPLES.fillna(value='', inplace=True)
         md_samples = SAMPLES.to_dict(orient='index')
         T.add_metadata(md_samples, axis='sample')
     if features_meta:
@@ -394,7 +411,7 @@ def write_data(table, taxonomy, sequence, adata, biom_table, denoise_viz_region,
             os.makedirs(join(args.output_dir, 'regions', region), exist_ok=True)
             if hasattr(viz, 'visualization'):
                 viz = viz.visualization
-            viz.save(join(args.output_dir, region, name))
+            viz.save(join(args.output_dir, 'regions', region, name))
 
     for region, data in taxa_viz_region.items():
         for name, viz in data.items():
@@ -414,17 +431,27 @@ if __name__ == '__main__':
     parser = get_parser()
     args = parser.parse_args()
     args.classifier_dir  = os.path.abspath(args.classifier_dir)
-    primers = PRIMERS[args.libprep]
+    PRIMERS = available_primers(args.libprep_config)
+    if args.libprep in PRIMERS:
+        primers = PRIMERS[args.libprep]
+    else:
+        available = ', '.join(PRIMERS.keys())
+        msg = 'asked for: {}. Available libprep options: {}'.format(args.libprep, available)
+        raise ValueError(msg)
     if args.regions is None or args.regions == 'None':
         args.regions = list(primers.keys())
     else:
         args.regions = args.regions.split(',')
+        for r in args.regions:
+            if not r in primers:
+                raise ValueError('libprepkit: {} does not support region: {}'.format(args.libprep, r))
+            if not r in available_classifiers(args.classifier_dir):
+                raise ValueError('prebuildt classifier dir: {} does not contain region: {}'.format(args.classifier_dir, r))
 
-    if os.path.exists(args.sample_info):
-        samples = Metadata.load(args.sample_info)
+    samples = Metadata.load(os.path.abspath(args.sample_info))
 
     # adata key: region, value: SampleData[PairedEndSequencesWithQuality] artifact
-    adata = demultiplex_manifests(args.input, args.regions, args.libprep, split_on_header=True, threads=args.threads)
+    adata = demultiplex_manifests(args.input, primers, args.regions, split_on_header=True, threads=args.threads)
 
     counts, merged_counts = sequence_counts(adata, min_count=args.filter_region_count )
     # filter regions with too few reads
@@ -441,20 +468,24 @@ if __name__ == '__main__':
     taxa_viz_region = taxonomy_summary(taxas, tables, samples)
 
     # merge data
+    print('merging data ...')
     table, taxonomy, sequence, meta_region = merge_data(tables, taxas, sequences, samples)
 
     # filter features
+    print('filtering features ...')
     table, taxonomy, sequence = filter_features(table, taxonomy, sequence, db=args.taxonomy_db, min_confidence=args.min_confidence)
 
     # table summaries
+    print('table summaries ...')
     summary = summary_data(table, taxonomy, sequence, samples)
 
     # biom data
+    print('create biom ...')
     biom_table = create_biom(table, taxonomy, sequence, features_meta=meta_region, samples_meta=samples)
 
     # diversity
     # diversity_region = calc_diversity_region(tables, sample_meta=samples, max_depth=5000)
-
+    print('writing biom ...')
     write_data(table, taxonomy, sequence, adata, biom_table, denoise_viz_region, taxa_viz_region, summary)
 
     # phylogenetic tree

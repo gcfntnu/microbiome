@@ -11,10 +11,12 @@ rule qiime2_sample_info:
     input:
         join(INTERIM_DIR, 'sample_info.tsv')
     output:
-        join(QIIME2_INTERIM, 'sample_info.tsv')
+        join(QIIME2_INTERIM, 'q2_sample_info.tsv')
+    shadow:
+        'minimal'
     shell:
-        'cp {input} {output} && '
-        'sed -i -e "s/Sample_ID/sample-id/g" {output}'
+        'cp {input} tmp.txt && sed -e "s/Sample_ID/sample-id/g" tmp.txt > {output}'
+       
 
 rule qiime2_run_regions:
     input:
@@ -23,13 +25,14 @@ rule qiime2_run_regions:
         R2 = expand(join(FILTER_INTERIM, 'merged_fastq', 'trimmed', 'fastp', '{sample}_R2.fastq'), sample=SAMPLES)
     params:
         script = srcdir('scripts/run_qiime2.py'),
-        libprep = 'qiaseq',
+        libprep = LIBPREP['name'],
         regions = config['db'].get('regions'),
         taxonomy_db = config['db']['reference_db'],
         classifier_dir = CLASSIFIER_DIR,
         filter_region_count = 500,
         min_confidence = 0.8,
-        output_dir = join(QIIME2_INTERIM)
+        output_dir = join(QIIME2_INTERIM),
+        libprep_conf = join(GCFDB_DIR, 'libprep.config')
     threads:
         48
     singularity:
@@ -41,17 +44,22 @@ rule qiime2_run_regions:
         repseq = join(QIIME2_INTERIM, 'sequence.qza'),
         table_tsv = join(QIIME2_INTERIM, 'table.tsv'),
         feature_info = join(QIIME2_INTERIM, 'feature_info.tsv'),
-        sample_info = join(QIIME2_INTERIM, 'sample_info.tsv')
+        sample_info = join(QIIME2_INTERIM, 'sample_info.tsv'),
+        taxa_bar = join(QIIME2_INTERIM, 'taxa_bar.qzv'),
+        taxa = join(QIIME2_INTERIM, 'taxa.qzv'),
+        taxonomy = join(QIIME2_INTERIM, 'taxonomy.qza')
     shell:
         'python {params.script} '
         '{input.R1} '
+        '--threads {threads} '
         '--output-dir {params.output_dir} '
         '--sample-info {input.sample_info} '
         '--libprep {params.libprep} '
         '--taxonomy-db {params.taxonomy_db} '
         '--classifier-dir {params.classifier_dir} '
+        '--libprep-config {params.libprep_conf} '
         '--filter-region-count {params.filter_region_count} '
-        '--min-confidence {params.min_conficence} '
+        '--min-confidence {params.min_confidence} '
         '--regions {params.regions} '
         '--build-tree '
 

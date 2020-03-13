@@ -1,0 +1,19 @@
+rule phyloseq_filter:
+    input:
+        join(QIIME2_INTERIM, 'physeq.rds')
+    output:
+        join(QIIME2_INTERIM, 'physeq_filtered.rds')
+    log:
+        notebook = 'notebooks/phyloseq_filter.ipynb'
+    notebook:
+        srcdir('notebooks/phyloseq_filter.ipynb')
+
+rule phyloseq_divnet:
+    input:
+        join(QIIME2_INTERIM, 'physeq.rds')
+    output:
+        join(QIIME2_INTERIM, 'divnet_table.tsv')
+    log:
+        notebook = 'notebooks/phyloseq_divnet.ipynb'
+    notebook:
+        srcdir('notebooks/phyloseq_divnet.ipynb')    

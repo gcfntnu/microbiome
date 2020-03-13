@@ -84,7 +84,7 @@ rule qiime2_faith_pd_correlations:
         '--m-metadata-file {input.sample_info} '
         '--o-visualization {output} '
 
-
+    
 rule qiime2_rpca:
     input:
         table = rules.qiime2_run_regions.output.table,
@@ -101,3 +101,7 @@ rule qiime2_rpca:
         '--o-biplot {output.ordination} '
         '--o-distance-matrix {output.distance} '
         '{params.args} '
+
+
+rule qiime2_divnet:
+    
