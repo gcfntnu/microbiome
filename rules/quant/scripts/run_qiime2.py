@@ -131,8 +131,14 @@ def pandas_manifest(R1):
 
 
 def import_data_worker(manifest_fn):
-    return Artifact.import_data('SampleData[PairedEndSequencesWithQuality]', manifest_fn,
-                                view_type='PairedEndFastqManifestPhred33V2')
+    cmd = 'qiime tools import --type SampleData[PairedEndSequencesWithQuality] --input-path {} --input-format PairedEndFastqManifestPhred33V2 --output-path {}'
+    output_fn = manifest_fn.split('_')[0] + '.qza'
+    cmd = cmd.format(manifest_fn, output_fn)
+    print(cmd)
+    subprocess.check_call(cmd, shell=True)
+    
+    #return Artifact.import_data('SampleData[PairedEndSequencesWithQuality]', manifest_fn,
+    #                            view_type='PairedEndFastqManifestPhred33V2')
 
 
 def demultiplex_manifests(fastq_files, primers, regions=None, split_on_header=True, threads=4):
@@ -161,9 +167,12 @@ def demultiplex_manifests(fastq_files, primers, regions=None, split_on_header=Tr
             manifest_filenames[r] = manifest_fn
 
     adata = {}
+    with mp.Pool(threads) as pool:
+        pool.map(import_data_worker, manifest_filenames.values())
+        
     for r, fn in manifest_filenames.items():
         print('importing data ({}) from {}'.format(r, fn))
-        adata[r] = import_data_worker(fn)
+        adata[r] = Artifact.load(fn.split('_')[0] + '.qza')
 
     # clean up tmpdir
     os.chdir(cwd)
@@ -402,7 +411,7 @@ def write_data(table, taxonomy, sequence, adata, biom_table, denoise_viz_region,
             os.makedirs(join(args.output_dir, 'regions', region), exist_ok=True)
             if hasattr(viz, 'visualization'):
                 viz = viz.visualization
-            viz.save(join(args.output_dir, region, name))
+            viz.save(join(args.output_dir, 'regions', region, name))
 
     for region, data in taxa_viz_region.items():
         for name, viz in data.items():

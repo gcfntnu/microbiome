@@ -11,7 +11,7 @@ rule qiime2_sample_info:
     input:
         join(INTERIM_DIR, 'sample_info.tsv')
     output:
-        temp(join(QIIME2_INTERIM, '_sample_info.tsv'))
+        join(QIIME2_INTERIM, 'q2_sample_info.tsv')
     shadow:
         'minimal'
     shell:
