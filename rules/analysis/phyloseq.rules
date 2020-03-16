@@ -4,9 +4,9 @@ rule phyloseq_filter:
     output:
         join(QIIME2_INTERIM, 'physeq_filtered.rds')
     log:
-        notebook = 'notebooks/phyloseq_filter.ipynb'
+        notebook = 'notebooks/phyloseq_filter_processed.ipynb'
     notebook:
-        srcdir('notebooks/phyloseq_filter.ipynb')
+        'notebooks/phyloseq_filter.ipynb'
 
 rule phyloseq_divnet:
     input:
@@ -14,6 +14,10 @@ rule phyloseq_divnet:
     output:
         join(QIIME2_INTERIM, 'divnet_table.tsv')
     log:
-        notebook = 'notebooks/phyloseq_divnet.ipynb'
+        notebook = 'notebooks/phyloseq_divnet_processed.ipynb'
     notebook:
-        srcdir('notebooks/phyloseq_divnet.ipynb')    
+        'notebooks/phyloseq_divnet.ipynb' 
+
+rule phyloseq_ordination:
+
+rule phyloseq_deseq2:

@@ -6,4 +6,5 @@ include:
     'analysis/phyloseq.rules'
 include:
     'analysis/bfq.rules'
-    
+include:
+    'analysis/physeq.rules'
