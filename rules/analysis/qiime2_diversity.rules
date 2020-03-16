@@ -5,21 +5,25 @@ rule qiime2_diversity:
         tree = rules.qiime2_run_regions.output.tree,
         sample_info = rules.qiime2_sample_info.output
     params:
-        outdir = join(QIIME2_INTERIM, 'diversity'),
-        max_depth = 20000
+        outdir = join(QIIME2_INTERIM, 'diversity', 'metrics'),
+        max_depth = 10000
     singularity:
         'docker://' + config['docker']['qiime2']
     output:
-        join(QIIME2_INTERIM, 'diversity', 'shannon_vector.qza'),
-        join(QIIME2_INTERIM, 'diversity', 'observed_otus_vector.qza'),
-        join(QIIME2_INTERIM, 'diversity', 'faith_pd_vector.qza')
+        join(QIIME2_INTERIM, 'diversity', 'metrics', 'shannon_vector.qza'),
+        join(QIIME2_INTERIM, 'diversity', 'metrics', 'observed_otus_vector.qza'),
+        join(QIIME2_INTERIM, 'diversity', 'metrics', 'faith_pd_vector.qza')
+    threads:
+        48
     shell:
+        'rm -rf {params.outdir} && '
         'qiime diversity core-metrics-phylogenetic '
         '--i-table {input.table} '
         '--i-phylogeny {input.tree} '
         '--m-metadata-file {input.sample_info} '
         '--p-sampling-depth {params.max_depth} '
-        '--output-dir {params.outdir}'
+        '--output-dir {params.outdir} '
+        '--p-n-jobs {threads} '
 
 rule qiime2_diversity_sampling:
     input:
@@ -44,7 +48,7 @@ rule qiime2_diversity_sampling:
 
 rule qiime2_shannon_correlations:
     input:
-        alpha = join(QIIME2_INTERIM, 'diversity', 'shannon_vector.qza'),
+        alpha = join(QIIME2_INTERIM, 'diversity', 'metrics', 'shannon_vector.qza'),
         sample_info = rules.qiime2_sample_info.output
     singularity:
         'docker://' + config['docker']['qiime2']
@@ -58,7 +62,7 @@ rule qiime2_shannon_correlations:
         
 rule qiime2_otu_correlations:
     input:
-        alpha = join(QIIME2_INTERIM, 'diversity', 'observed_otus_vector.qza'),
+        alpha = join(QIIME2_INTERIM, 'diversity', 'metrics', 'observed_otus_vector.qza'),
         sample_info = rules.qiime2_sample_info.output
     singularity:
         'docker://' + config['docker']['qiime2']
@@ -72,12 +76,12 @@ rule qiime2_otu_correlations:
 
 rule qiime2_faith_pd_correlations:
     input:
-        alpha = join(QIIME2_INTERIM, 'diversity', 'faith_pd_vector.qza'),
+        alpha = join(QIIME2_INTERIM, 'diversity', 'metrics', 'faith_pd_vector.qza'),
         sample_info = rules.qiime2_sample_info.output
     singularity:
         'docker://' + config['docker']['qiime2']
     output:
-        join(QIIME2_INTERIM, '{denoiser}', 'faith_pd_group-significance.qzv')
+        join(QIIME2_INTERIM, 'diversity', 'faith_pd_group-significance.qzv')
     shell:
         'qiime diversity alpha-group-significance '
         ' --i-alpha-diversity {input.alpha} '
@@ -101,7 +105,3 @@ rule qiime2_rpca:
         '--o-biplot {output.ordination} '
         '--o-distance-matrix {output.distance} '
         '{params.args} '
-
-
-rule qiime2_divnet:
-    

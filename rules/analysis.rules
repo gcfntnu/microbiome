@@ -3,5 +3,6 @@ include:
 include:
     'analysis/qiime2_diversity.rules'
 include:
+    'analysis/phyloseq.rules'
+include:
     'analysis/bfq.rules'
-    
