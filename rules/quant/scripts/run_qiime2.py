@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import copy
+import re
 import argparse
 import os
 from os.path import join, abspath, exists, basename
@@ -14,6 +15,7 @@ import itertools
 import collections
 
 import yaml
+from yaml import CLoader as Loader
 
 import qiime2
 from qiime2 import Artifact, Metadata
@@ -27,7 +29,7 @@ __version__ = '0.1'
 def available_primers(libprep_conf):
     primers = {}
     with open(libprep_conf) as fh:
-        c = yaml.load(fh)
+        c = yaml.load(fh, Loader=Loader)
     for libprepkit, conf in c.items():
         if 'primers' in conf:
             libprep_name = conf['name']
@@ -299,20 +301,32 @@ def filter_features(table, taxonomy, sequence, db, min_confidence):
 
     if db == 'silva':
         has_phylum = X.Taxon.str.contains('D_1__')
+        # rm some useless taxonomy
+        tx = X.Taxon.copy()
+        tx = tx.str.replace(';Ambiguous_taxa', '')
+        tx = tx.str.replace('\\;D_\d__unidentified$', '', regex=True)
+        tx = tx.str.replace('\\;D_\d__unidentified$', '', regex=True)
+        X.loc[:,"Taxon"] = tx
+        
     elif db == 'greengenes':
         has_phylum = X.Taxon.str.contains('p__')
     else:
         print('ERROR: db not valid!')
         sys.exit(-1)
         
-    keep = (X.Confidence.astype('d') > min_confidence) & \
-           (X.Taxon.str.contains('chloroplast')==False) & \
-           (X.Taxon.str.contains('mitochondria')==False) & \
-           has_phylum
+    out = (X.Confidence.astype('d') < min_confidence) | \
+          X.Taxon.str.contains('chloroplast', flags=re.IGNORECASE) | \
+          X.Taxon.str.contains('mitochondria', flags=re.IGNORECASE) | \
+          (has_phylum == False)
+    keep = out == False
+
+    print("Before filtering: {} features".format(X.shape[0]))
+    print("After filtering: {} features".format(sum(keep)))
     
     table = Artifact.import_data('FeatureTable[Frequency]', T.loc[:,keep] )
     taxonomy = Artifact.import_data('FeatureData[Taxonomy]', X[keep])
     sequence = Artifact.import_data('FeatureData[Sequence]', S[keep])
+    
     return table, taxonomy, sequence
 
 def summary_data(table, taxonomy, sequence, samples):
@@ -445,9 +459,9 @@ if __name__ == '__main__':
         for r in args.regions:
             if not r in primers:
                 raise ValueError('libprepkit: {} does not support region: {}'.format(args.libprep, r))
-            if not r in available_classifiers(args.classifier_dir):
+            if not primers[r] in available_classifiers(args.classifier_dir):
                 raise ValueError('prebuildt classifier dir: {} does not contain region: {}'.format(args.classifier_dir, r))
-
+    
     samples = Metadata.load(os.path.abspath(args.sample_info))
 
     # adata key: region, value: SampleData[PairedEndSequencesWithQuality] artifact
