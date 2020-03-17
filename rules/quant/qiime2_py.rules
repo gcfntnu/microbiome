@@ -36,7 +36,10 @@ rule qiime2_run_regions:
     threads:
         48
     singularity:
-       'docker://' + config['docker']['qiime2']         
+       'docker://' + config['docker']['qiime2']
+    log:
+        stdout = join(QIIME2_INTERIM, 'logs', 'dada2.stdout'),
+        stderr = join(QIIME2_INTERIM, 'logs', 'dada2.stderr')
     output:
         biom = join(QIIME2_INTERIM, 'table.biom'),
         table = join(QIIME2_INTERIM, 'table.qza'),
@@ -62,6 +65,7 @@ rule qiime2_run_regions:
         '--min-confidence {params.min_confidence} '
         '--regions {params.regions} '
         '--build-tree '
+        '> {log.stdout} 2> {log.stderr}'
 
         
 rule qiime2_export_phylo_tree:
