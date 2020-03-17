@@ -1,8 +1,14 @@
+extra_conf_fn = srcdir('analysis.config')
+if os.path.exists(extra_conf_fn):
+    with open(extra_conf_fn) as fh:
+        c  = yaml.load(fh) or {}
+        update_config2(config, c)
+
+ANALYSIS_INTERIM = join(INTERIM_DIR, 'microbiome', 'analysis')
+
 include:
     'analysis/qiime2_filter.rules'
 include:
-    'analysis/qiime2_diversity.rules'
+    'analysis/qiime2_picrust.rules'
 include:
     'analysis/phyloseq.rules'
-include:
-    'analysis/bfq.rules'

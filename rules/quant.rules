@@ -9,10 +9,10 @@ QUANT_INTERIM = join(INTERIM_DIR, 'microbiome', 'quant')
 
 include:
     'quant/qiime2_py.rules'
-
-DENOISERS = config['quant']['denoiser'].split(',')
-DB = config['db']['reference_db']
-
+include:
+    'quant/qiime2_diversity.rules'
+include:
+    'quant/bfq.rules'
 
 rule qiime2_quant_all:
     input:

@@ -1,0 +1,53 @@
+
+rule qiime2_picrust_full_pipeline:
+    input:
+        biom = join(QIIME2_INTERIM, 'filtered', 'table.qza'),
+        seq = join(QIIME2_INTERIM, 'sequence.qza'),
+    params:
+        outdir = join(ANALYSIS_INTERIM, 'picrust'),
+        args = '--p-hsp-method pic --p-max-nsti 2 --verbose '
+    threads:
+        48
+    singularity:
+        'docker://' + config['docker']['qiime2']     
+    output:
+        KO = join(ANALYSIS_INTERIM, 'picrust', 'ko_metagenome.qza'),
+        EC = join(ANALYSIS_INTERIM, 'picrust', 'ec_metagenome.qza'),
+        abundance = join(ANALYSIS_INTERIM, 'picrust', 'pathway_abundance.qza')
+    shell:
+        'qiime picrust2 full-pipeline '
+        '--i-table {input.biom} '
+        '--i-seq {input.seq} '
+        '--p-threads {threads} '
+        '--output-dir {params.outdir} '
+        '{params.args} '
+
+rule qiime2_picrust_biom:
+    input:
+        join(ANALYSIS_INTERIM, 'picrust', '{name}.qza')
+    params:
+        outdir = join(ANALYSIS_INTERIM, 'picrust', 'export', '{name}')
+    singularity:
+        'docker://' + config['docker']['qiime2']
+    output:
+        temp(join(ANALYSIS_INTERIM, 'picrust', 'export', '{name}', 'feature-table.biom'))
+    shell:
+        'qiime tools export '
+        '--input-path {input} '
+        '--output-path {params.outdir} ' 
+
+rule qiime2_picrust_tsv:
+    input:
+        join(ANALYSIS_INTERIM, 'picrust', 'export', '{name}', 'feature-table.biom')
+    output:
+        join(ANALYSIS_INTERIM, 'picrust', 'export', '{name}.tsv')
+    singularity:
+        'docker://' + config['docker']['qiime2']
+    shell:
+        'biom convert -i {input} -o {output} --to-tsv '
+
+rule qiime2_picrust_all:
+    input:
+       join(ANALYSIS_INTERIM, 'picrust', 'export', 'ko_metagenome.tsv'),
+       join(ANALYSIS_INTERIM, 'picrust', 'export', 'ec_metagenome.tsv'),
+       join(ANALYSIS_INTERIM, 'picrust', 'export', 'pathway_abundance.tsv')

@@ -447,13 +447,26 @@ if __name__ == '__main__':
     args.classifier_dir  = os.path.abspath(args.classifier_dir)
     PRIMERS = available_primers(args.libprep_config)
     if args.libprep in PRIMERS:
-        primers = PRIMERS[args.libprep]
+        all_primers = PRIMERS[args.libprep]
+        available_regions = list(all_primers.keys())
+        if args.taxonomy_db in ['silva', 'greengenes']:
+            regions = [r for r in available_regions if r.startswith('V')]
+        elif args.taxonomy_db == 'unite':
+            regions = [r for r in available_regions if r.startswith('ITS')]
+        else:
+            raise ValueError('provided taxonomy-db {} is not supported!'.format(args.taxonomy_db))
+        primers = {k:v for k, v in all_primers.items() if k in regions}
     else:
         available = ', '.join(PRIMERS.keys())
         msg = 'asked for: {}. Available libprep options: {}'.format(args.libprep, available)
         raise ValueError(msg)
+    
     if args.regions is None or args.regions == 'None':
-        args.regions = list(primers.keys())
+        if regions:
+            args.regions = regions
+        else:
+            raise ValueError('Failed to identify correctly named regions (V* / ITS*)')
+                
     else:
         args.regions = args.regions.split(',')
         for r in args.regions:
