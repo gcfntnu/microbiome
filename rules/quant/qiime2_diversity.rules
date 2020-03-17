@@ -68,7 +68,6 @@ rule qiime2_shannon_group_sign:
         join(QIIME2_INTERIM, 'diversity', 'shannon_group-significance.qzv')
     shell:
         'qiime diversity alpha-group-significance '
-        '--p-intersect-ids '
         ' --i-alpha-diversity {input.alpha} '
         '--m-metadata-file {input.sample_info} '
         '--o-visualization {output} '
@@ -83,7 +82,6 @@ rule qiime2_otu_group_sign:
         join(QIIME2_INTERIM, 'diversity', 'otus_group-significance.qzv')
     shell:
         'qiime diversity alpha-group-significance '
-        '--p-intersect-ids '
         ' --i-alpha-diversity {input.alpha} '
         '--m-metadata-file {input.sample_info} '
         '--o-visualization {output} '
@@ -98,7 +96,6 @@ rule qiime2_faith_pd_group_sign:
         join(QIIME2_INTERIM, 'diversity', 'faith_pd_group-significance.qzv')
     shell:
         'qiime diversity alpha-group-significance '
-        '--p-intersect-ids '
         ' --i-alpha-diversity {input.alpha} '
         '--m-metadata-file {input.sample_info} '
         '--o-visualization {output} '
@@ -173,6 +170,8 @@ rule qiime2_rpca_viz:
         feature_info = rules.qiime2_run_regions.output.taxonomy
     output:
         join(QIIME2_INTERIM, 'diversity', 'metrics', 'deicode_rpca_emperor.qzv')
+    singularity:
+        'docker://' + config['docker']['qiime2']
     shell:
         'qiime emperor biplot '
         '--i-biplot {input.ordination} '
