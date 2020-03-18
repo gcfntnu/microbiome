@@ -57,7 +57,7 @@ rule bfq_dada2_log:
 
 rule bfq_rpca:
     input:
-        join(QIIME2_INTERIM, 'diversity', 'metrics', 'deicode_rpca.qza')
+        join(QIIME2_INTERIM, 'diversity', 'metrics', 'deicode_rpca_results.qza')
     output:
         join(BFQ_INTERIM, 'logs', 'deicode', 'ordination.txt')
     params:
