@@ -13,6 +13,7 @@ import multiprocessing as mp
 import glob
 import itertools
 import collections
+import time
 
 import yaml
 from yaml import CLoader as Loader
@@ -206,6 +207,7 @@ def denoise_dada2(adata, trunc_len_f=0, trunc_len_r=0, trim_left_f=0, trim_left_
     """
     tables, seqs, stats = {}, {}, {}
     for region, data in adata.items():
+        write_message('denoising region {}'.format(region))
         try:
             res = dada2.methods.denoise_paired(data, trunc_len_f=trunc_len_f, trunc_len_r=trunc_len_r,
                                                trim_left_f=trim_left_f, trim_left_r=trim_left_r,
@@ -215,10 +217,8 @@ def denoise_dada2(adata, trunc_len_f=0, trunc_len_r=0, trim_left_f=0, trim_left_
             tables[region], seqs[region], stats[region]  = res
         except Exception as inst:
             print('skipping ' + region)
-            print(type(inst))
-            print(inst.args)
             print(inst)
-
+        write_message('completed denoising region {}'.format(region))
     return tables, seqs, stats
 
 
@@ -238,9 +238,11 @@ def taxonomy_classify(sequences, classifier_dir, primers, level='99', threads=4)
     for region, repseq in sequences.items():
         clf_name = '{}_{}'.format(level, primers[region])
         clf_pth = join(classifier_dir, clf_name)
-        print('loading classifier: {}'.format(clf_pth))
+        write_message('loading classifier: {}'.format(clf_pth))
         classifier = qiime2.Artifact.import_data('TaxonomicClassifier', clf_pth)
-        taxas[region] = feature_classifier.methods.classify_sklearn(reads=repseq, classifier=classifier, n_jobs=threads, reads_per_batch=20000)
+        write_message('starting classifier for region: {}'.format(region))
+        taxas[region] = feature_classifier.methods.classify_sklearn(reads=repseq, classifier=classifier, n_jobs=threads)
+        write_message('completed classification for {}'.format(region))
     return taxas
 
 
@@ -441,6 +443,11 @@ def write_data(table, taxonomy, sequence, adata, biom_table, denoise_viz_region,
 
 
 if __name__ == '__main__':
+    def write_message(msg):
+        timestamp = time.strftime("%Y-%m-%d %X")
+        sys.stdout.write('\n{} [{}]'.format(msg, timestamp))
+
+    write_message('starting run_qiime2')
     test = False
     parser = get_parser()
     args = parser.parse_args()
@@ -474,48 +481,66 @@ if __name__ == '__main__':
                 raise ValueError('libprepkit: {} does not support region: {}'.format(args.libprep, r))
             if not primers[r] in available_classifiers(args.classifier_dir):
                 raise ValueError('prebuildt classifier dir: {} does not contain region: {}'.format(args.classifier_dir, r))
-    
+    write_message('loading sample info')
     samples = Metadata.load(os.path.abspath(args.sample_info))
 
+    write_message('starting demultiplex fastq files')
     # adata key: region, value: SampleData[PairedEndSequencesWithQuality] artifact
     adata = demultiplex_manifests(args.input, primers, args.regions, split_on_header=True, threads=args.threads)
-
+    write_message('completed demultiplex fastq files')
+    write_message('starting read count of fastq files')
     counts, merged_counts = sequence_counts(adata, min_count=args.filter_region_count )
     # filter regions with too few reads
     for k in list(adata.keys()):
         if not k in counts:
             del adata[k]
-
+    write_message('completed read count')
+            
     # denoise dada2
+    write_message('starting denoising (dada2)')
     tables, sequences, stats = denoise_dada2(adata, threads=args.threads)
+    write_message('completed denoising (dada2)')
+
+    write_message('starting summary of dada2')
     denoise_viz_region = dada2_summary(tables, sequences, stats)
-
+    write_message('completed summary of dada2')
     # classify sequences
+    write_message('starting taxonomy classification')
     taxas = taxonomy_classify(sequences, args.classifier_dir, primers, level='99', threads=args.threads)
+    write_message('completed taxonomy classification')
+    write_message('starting taxonomy summary')
     taxa_viz_region = taxonomy_summary(taxas, tables, samples)
-
+    write_message('completed taxonomy summary')
     # merge data
-    print('merging data ...')
+    write_message('merging data')
     table, taxonomy, sequence, meta_region = merge_data(tables, taxas, sequences, samples)
-
+    write_message('merging completed')
+    
     # filter features
-    print('filtering features ...')
+    write_message('filtering features')
     table, taxonomy, sequence = filter_features(table, taxonomy, sequence, db=args.taxonomy_db, min_confidence=args.min_confidence)
-
+    write_message('filtering features completed')
+    
     # table summaries
-    print('table summaries ...')
+    write_message('table summaries')
     summary = summary_data(table, taxonomy, sequence, samples)
 
     # biom data
-    print('create biom ...')
+    write_message('create biom')
     biom_table = create_biom(table, taxonomy, sequence, features_meta=meta_region, samples_meta=samples)
-
+    write_message('create biom completed')
+    
     # diversity
     # diversity_region = calc_diversity_region(tables, sample_meta=samples, max_depth=5000)
-    print('writing biom ...')
+    write_message('writing files to disk')
     write_data(table, taxonomy, sequence, adata, biom_table, denoise_viz_region, taxa_viz_region, summary)
-
+    write_message('completed writing files to disk')
+    
     # phylogenetic tree
     if args.build_tree:
+        write_message('building phylogenetic tree')
         tree = build_phylogenetic_tree(sequence, threads=args.threads)
         tree.rooted_tree.save(join(args.output_dir, 'tree'))
+        write_message('completed phylogenetic tree')
+        
+    write_message('run_qiime2 completed!')
