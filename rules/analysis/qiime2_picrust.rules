@@ -19,7 +19,10 @@ rule qiime2_picrust_full_pipeline:
         '--i-table {input.biom} '
         '--i-seq {input.seq} '
         '--p-threads {threads} '
-        '--output-dir {params.outdir} '
+        '--o-ec-metagenome {output.EC} '
+        '--o-ko-metagenome {output.KO} '
+        '--o-pathway-abundance {output.abundance} '
+        
         '{params.args} '
 
 rule qiime2_picrust_biom:
