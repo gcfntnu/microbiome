@@ -118,6 +118,8 @@ rule bfq_qiime2_data:
         rules.qiime2_faith_pd_correlation.output,      
         rules.qiime2_rpca.output,
         rules.qiime2_rpca_viz.output
+    output:
+        directory(join(BFQ_INTERIM, 'qiime2')) 
     run:
         patt = os.path.join(QIIME2_INTERIM, '*.qz*')
         os.makedirs(output[0], exist_ok=True)
@@ -143,4 +145,4 @@ rule bfq_all:
         rules.bfq_taxonomy_log.output,
         rules.bfq_dada2_log.output,
         rules.bfq_rpca_log.output,
-        rules.bfq_qiime2_data.input
+        rules.bfq_qiime2_data.output
