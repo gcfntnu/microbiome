@@ -52,7 +52,7 @@ rule bfq_dada2_log:
     input:
        aggr_dada2_regions
     output:
-        temp(touch('.aggr.done'))
+        temp(touch(join(BFQ_INTERIM, 'aggr.done')))
 
 
 rule bfq_rpca:
