@@ -1,14 +1,22 @@
+"""Analysis rules.
+
+Analysis rules differ from other rules by requiring a models.config file to be present which describes the data models.
+
+"""
+import warnings
+
 extra_conf_fn = srcdir('analysis.config')
 if os.path.exists(extra_conf_fn):
     with open(extra_conf_fn) as fh:
-        c  = yaml.load(fh) or {}
+        c  = yaml.load(fh, Loader=Loader) or {}
         update_config2(config, c)
+
+if not 'models' in config:
+    warnings.warn('analysis rules require a models.yaml config file in snakemake dir!')
 
 ANALYSIS_INTERIM = join(INTERIM_DIR, 'microbiome', 'analysis')
 
 include:
     'analysis/qiime2_filter.rules'
-include:
-    'analysis/qiime2_picrust.rules'
 include:
     'analysis/phyloseq.rules'

@@ -183,7 +183,7 @@ def demultiplex_manifests(fastq_files, primers, regions=None, split_on_header=Tr
     return adata
 
 
-def sequence_counts(adata, min_count=500):
+def sequence_counts(adata, min_count=200000):
     """Summarize read count for each sample.
     """
     counts = {}
@@ -193,11 +193,13 @@ def sequence_counts(adata, min_count=500):
         s = demux.visualizers.summarize(v)
         fn = glob.glob(str(s.visualization._archiver.path) + '/*/data/per-sample-fastq-counts.csv')[0]
         df = pd.read_csv(fn)
-        count = df['Sequence count'].median()
-        if count > min_count:
+        keep_region = df['Sequence count'].sum() > min_count
+        if keep_region:
             counts[k] = df
             for name, row in df.iterrows():
                 merged_counts[row['Sample name']] += int(row['Sequence count'])
+        else:
+            write_message('region {} skipped with too few reads: {}'.format(k, df['Sequence count'].sum()))
     return counts, merged_counts
 
 
@@ -279,11 +281,7 @@ def merge_data(tables, taxas, sequences, samples):
         seq_list.append(sequences[r])
     merged_taxa = feature_table.methods.merge_taxa(taxa_list)
     merged_seq = feature_table.methods.merge_seqs(seq_list)
-    merged_table = feature_table.methods.merge(
-        table_list, overlap_method='error_on_overlapping_feature'
-    )
-
-    #
+    merged_table = feature_table.methods.merge(table_list, overlap_method='error_on_overlapping_feature')
     meta = pd.DataFrame(meta_region)
     meta.index = merged_table.merged_table.view(pd.DataFrame).columns
     meta.index.name = 'feature-id'
@@ -315,11 +313,12 @@ def filter_features(table, taxonomy, sequence, db, min_confidence):
     else:
         print('ERROR: db not valid!')
         sys.exit(-1)
-        
+
+    zero_count_tax = T.sum(0) == 0
     out = (X.Confidence.astype('d') < min_confidence) | \
           X.Taxon.str.contains('chloroplast', flags=re.IGNORECASE) | \
           X.Taxon.str.contains('mitochondria', flags=re.IGNORECASE) | \
-          (has_phylum == False)
+          (has_phylum == False) | zero_count_tax
     keep = out == False
 
     print("Before filtering: {} features".format(X.shape[0]))

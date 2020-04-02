@@ -1,12 +1,12 @@
 import sys
 import yaml
-
+from yaml import CLoader as Loader
 import pandas as pd
 
 
 if __name__ == '__main__':
     with open(sys.argv[1]) as fh:
-        c = yaml.load(fh)
+        c = yaml.load(fh, Loader=Loader)
         assert('samples' in c)
     df = pd.DataFrame.from_dict(c['samples'], orient='index')
     df.index.name = 'Sample_ID'
