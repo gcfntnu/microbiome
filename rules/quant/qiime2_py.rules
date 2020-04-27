@@ -103,6 +103,6 @@ rule qiime2_biom_to_phyloseq:
         script = srcdir('scripts/qiime2_create_physeq.R'),
         db = config['db']['reference_db']
     singularity:
-       'docker://' + config['docker']['qiime2'] 
+       'docker://' + config['docker']['phyloseq'] 
     shell:
         'Rscript {params.script} {input} {output} {params.db}'

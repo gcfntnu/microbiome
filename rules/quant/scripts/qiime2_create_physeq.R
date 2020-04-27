@@ -60,7 +60,8 @@ if (DB == "SILVA" | DB == "silva"){
 }
 
 
-
+if (tree.fn == "NULL") tree.fn <- NULL
+if (fasta.fn == "NULL") fasta.fn
 OTU <- import_biom(biom.fn, parseFunction=parseFunction, treefilename=tree.fn, refseqfilename=fasta.fn)
 TAX <- tax_table(OTU)
 
