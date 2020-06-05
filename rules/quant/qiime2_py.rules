@@ -58,7 +58,7 @@ checkpoint qiime2_run_regions:
         '--threads {threads} '
         '--output-dir {params.output_dir} '
         '--sample-info {input.sample_info} '
-        '--libprep "{params.libprep}" '
+        '--libprep {params.libprep} '
         '--taxonomy-db {params.taxonomy_db} '
         '--classifier-dir {params.classifier_dir} '
         '--libprep-config {params.libprep_conf} '
