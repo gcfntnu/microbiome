@@ -56,6 +56,7 @@ def get_parser():
     parser.add_argument("--regions", help="comma separated list of variable regions", required=False)
     parser.add_argument("--taxonomy-db", help="reference database", choices=['silva', 'greengenes', 'unite'], required=True)
     parser.add_argument("--classifier-dir", help="path to prebuildt classifiers", required=True)
+    parser.add_argument("--classifier-level", help="prebuilt classifier level to use", default='99')
     parser.add_argument("--libprep-config", help="full path to gcfdb libprep.config", required=True)
     parser.add_argument("--filter-region-count", help="minimum number of reads within a region", type=int, default=500)
     parser.add_argument("--min-confidence", help="minimum accepted confidence for feature classifier", type=float, default=0.8)
@@ -481,7 +482,7 @@ if __name__ == '__main__':
         for r in args.regions:
             if not r in primers:
                 raise ValueError('libprepkit: {} does not support region: {}'.format(args.libprep, r))
-            if not primers[r] in available_classifiers(args.classifier_dir):
+            if not primers[r] in available_classifiers(args.classifier_dir, level=args.classifier_level):
                 raise ValueError('prebuildt classifier dir: {} does not contain region: {}'.format(args.classifier_dir, r))
     write_message('loading sample info')
     samples = Metadata.load(os.path.abspath(args.sample_info))
@@ -508,7 +509,7 @@ if __name__ == '__main__':
     write_message('completed summary of dada2')
     # classify sequences
     write_message('starting taxonomy classification')
-    taxas = taxonomy_classify(sequences, args.classifier_dir, primers, level='99', threads=4)
+    taxas = taxonomy_classify(sequences, args.classifier_dir, primers, level=args.classifier_level, threads=4)
     write_message('completed taxonomy classification')
     write_message('starting taxonomy summary')
     taxa_viz_region = taxonomy_summary(taxas, tables, samples)
