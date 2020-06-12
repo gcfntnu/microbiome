@@ -204,7 +204,7 @@ def sequence_counts(adata, min_count=200000):
     return counts, merged_counts
 
 
-def denoise_dada2(adata, trunc_len_f=0, trunc_len_r=0, trim_left_f=0, trim_left_r=0, max_ee_f=2.0, max_ee_r=2.0, trunc_q=2,
+def denoise_dada2(adata, trunc_len_f=0, trunc_len_r=0, trim_left_f=0, trim_left_r=0, max_ee_f=6.0, max_ee_r=6.0, trunc_q=2,
                   min_fold_parent_over_abundance=1.0, threads=4):
     """
     """
