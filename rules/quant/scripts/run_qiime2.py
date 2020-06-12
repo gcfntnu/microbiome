@@ -304,17 +304,20 @@ def filter_features(table, taxonomy, sequence, db, min_confidence):
     X = taxonomy.merged_data.view(pd.DataFrame)
     S = sequence.merged_data.view(pd.Series)
 
+    tx = X.Taxon.copy()
     if db == 'silva':
         has_phylum = X.Taxon.str.contains('D_1__')
         # rm some useless taxonomy
-        tx = X.Taxon.copy()
-        tx = tx.str.replace(';Ambiguous_taxa', '')
-        tx = tx.str.replace('\\;D_\d__unidentified$', '', regex=True)
-        tx = tx.str.replace('\\;D_\d__unidentified$', '', regex=True)
+        tx = tx.str.replace('Ambiguous_taxa', '')
+        tx = tx.str.replace('D_\d__unidentified', '', regex=True)
+        #tx = tx.str.replace('\\;D_\d__unidentified$', '', regex=True)
         X.loc[:,"Taxon"] = tx
-        
     elif db == 'greengenes':
         has_phylum = X.Taxon.str.contains('p__')
+        tx = tx.str.replace('[a-z]__unidentified', '', regex=True)
+    elif db == 'unite':
+        has_phylum = X.Taxon.str.contains('p__')
+        tx = tx.str.replace('[a-z]__unidentified', '', regex=True)
     else:
         print('ERROR: db not valid!')
         sys.exit(-1)
