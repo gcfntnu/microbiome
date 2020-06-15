@@ -16,6 +16,8 @@ elif 'reference_db' in config['db']:
         include: join(GCFDB_DIR, 'silva.db')
     if ref == 'greegenes' or ref.lower() == 'gg':
         include: join(GCFDB_DIR, 'greengenes.db')
+    if ref == 'unite':
+        include: join(GCFDB_DIR, 'unite.db')
 
     DB_CONF = config['db'][ref]
     REF_DIR = join(EXT_DIR, ref, DB_CONF['version'])

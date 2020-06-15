@@ -56,6 +56,7 @@ def get_parser():
     parser.add_argument("--regions", help="comma separated list of variable regions", required=False)
     parser.add_argument("--taxonomy-db", help="reference database", choices=['silva', 'greengenes', 'unite'], required=True)
     parser.add_argument("--classifier-dir", help="path to prebuildt classifiers", required=True)
+    parser.add_argument("--classifier-level", help="prebuilt classifier level to use", default='99')
     parser.add_argument("--libprep-config", help="full path to gcfdb libprep.config", required=True)
     parser.add_argument("--filter-region-count", help="minimum number of reads within a region", type=int, default=500)
     parser.add_argument("--min-confidence", help="minimum accepted confidence for feature classifier", type=float, default=0.8)
@@ -203,7 +204,7 @@ def sequence_counts(adata, min_count=200000):
     return counts, merged_counts
 
 
-def denoise_dada2(adata, trunc_len_f=0, trunc_len_r=0, trim_left_f=0, trim_left_r=0, max_ee_f=2.0, max_ee_r=2.0, trunc_q=2,
+def denoise_dada2(adata, trunc_len_f=0, trunc_len_r=0, trim_left_f=0, trim_left_r=0, max_ee_f=6.0, max_ee_r=6.0, trunc_q=2,
                   min_fold_parent_over_abundance=1.0, threads=4):
     """
     """
@@ -303,17 +304,20 @@ def filter_features(table, taxonomy, sequence, db, min_confidence):
     X = taxonomy.merged_data.view(pd.DataFrame)
     S = sequence.merged_data.view(pd.Series)
 
+    tx = X.Taxon.copy()
     if db == 'silva':
         has_phylum = X.Taxon.str.contains('D_1__')
         # rm some useless taxonomy
-        tx = X.Taxon.copy()
-        tx = tx.str.replace(';Ambiguous_taxa', '')
-        tx = tx.str.replace('\\;D_\d__unidentified$', '', regex=True)
-        tx = tx.str.replace('\\;D_\d__unidentified$', '', regex=True)
+        tx = tx.str.replace('Ambiguous_taxa', '')
+        tx = tx.str.replace('D_\d__unidentified', '', regex=True)
+        #tx = tx.str.replace('\\;D_\d__unidentified$', '', regex=True)
         X.loc[:,"Taxon"] = tx
-        
     elif db == 'greengenes':
         has_phylum = X.Taxon.str.contains('p__')
+        tx = tx.str.replace('[a-z]__unidentified', '', regex=True)
+    elif db == 'unite':
+        has_phylum = X.Taxon.str.contains('p__')
+        tx = tx.str.replace('[a-z]__unidentified', '', regex=True)
     else:
         print('ERROR: db not valid!')
         sys.exit(-1)
@@ -481,7 +485,7 @@ if __name__ == '__main__':
         for r in args.regions:
             if not r in primers:
                 raise ValueError('libprepkit: {} does not support region: {}'.format(args.libprep, r))
-            if not primers[r] in available_classifiers(args.classifier_dir):
+            if not primers[r] in available_classifiers(args.classifier_dir, level=args.classifier_level):
                 raise ValueError('prebuildt classifier dir: {} does not contain region: {}'.format(args.classifier_dir, r))
     write_message('loading sample info')
     samples = Metadata.load(os.path.abspath(args.sample_info))
@@ -508,7 +512,7 @@ if __name__ == '__main__':
     write_message('completed summary of dada2')
     # classify sequences
     write_message('starting taxonomy classification')
-    taxas = taxonomy_classify(sequences, args.classifier_dir, primers, level='99', threads=4)
+    taxas = taxonomy_classify(sequences, args.classifier_dir, primers, level=args.classifier_level, threads=4)
     write_message('completed taxonomy classification')
     write_message('starting taxonomy summary')
     taxa_viz_region = taxonomy_summary(taxas, tables, samples)
