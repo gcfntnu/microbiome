@@ -7,8 +7,7 @@ rule phyloseq_filter:
     params:
         prevalence_threshold = lambda wildcards: model_par(wildcards, 'prevalence_threshold', default=0.05, rule='phyloseq_filter'),
         abundance_threshold = lambda wildcards: model_par(wildcards, 'abundance_threshold', default=0.0000025, rule='phyloseq_filter'),
-        min_libsize = lambda wildcards: model_par(wildcards, 'min_libsize', default=500, rule='phyloseq_filter'),
-        subset = lambda wildcards: model_par(wildcards, 'subset')
+        min_libsize = lambda wildcards: model_par(wildcards, 'min_libsize', default=500, rule='phyloseq_filter')
     log:
         notebook = join('notebooks', '{model}', '01_phyloseq_filter.ipynb')
     notebook:
@@ -47,7 +46,7 @@ rule phyloseq_ordination:
     params:
         condition = lambda wildcards: model_par(wildcards, 'condition', default='Sample_Group'),
         ref_level = lambda wildcards: model_par(wildcards, 'ref_level', require_default=True),
-        subset = lambda wildcards: model_par(wildcards, 'subset'),
+        block = lambda wildcards: model_par(wildcards, 'block'),
         taxrank = lambda wildcards: model_par(wildcards, 'taxrank', rule='phyloseq_ordination'),
         independent_filtering = lambda wildcards: model_par(wildcards, 'filter', default=True, rule='phyloseq_ordination')
     log:
@@ -67,8 +66,8 @@ rule phyloseq_deseq2:
     params:
         condition = lambda wildcards: model_par(wildcards, 'condition', default='Sample_Group'),
         ref_level = lambda wildcards: model_par(wildcards, 'ref_level', require_default=True),
+        block = lambda wildcards: model_par(wildcards, 'block'),
         test = lambda wildcards: model_par(wildcards, 'test', default='ALL', rule='phyloseq_deseq2'),
-        subset = lambda wildcards: model_par(wildcards, 'subset'),
         taxrank = lambda wildcards: model_par(wildcards, 'taxrank', rule='phyloseq_deseq2'),
         alpha = lambda wildcards: model_par(wildcards, 'alpha', default=0.05, rule='phyloseq_deseq2'),
         independent_filtering = lambda wildcards: model_par(wildcards, 'filter', default=False, rule='phyloseq_deseq2')
