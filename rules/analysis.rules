@@ -31,6 +31,8 @@ def model_par(wildcards, p, default=None, require_default=False, rule=None):
 
 include:
     'analysis/phyloseq.rules'
+include:
+    'analysis/picrust.rules'
 
 
 rule nbconvert_html:
