@@ -53,7 +53,7 @@ parse.qiime2.greengenes <- function(char.vec){
 if (DB == "SILVA" | DB == "silva"){
     parseFunction <- parse.qiime2.silva
     cat("using SILVA parser ...")
-} else if (DB == "GG" | DB == "gg" | DB == "greengenes"){
+} else if (DB == "GG" | DB == "gg" | DB == "greengenes" | DB == 'unite'){
     parseFunction <- parse.qiime2.greengenes
 } else{
     parseFunction=parse_taxonomy_default

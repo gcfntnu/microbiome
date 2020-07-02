@@ -51,8 +51,7 @@ checkpoint qiime2_run_regions:
         sample_info = join(QIIME2_INTERIM, 'sample_info.tsv'),
         taxa_bar = join(QIIME2_INTERIM, 'taxa_bar.qzv'),
         taxa = join(QIIME2_INTERIM, 'taxa.qzv'),
-        taxonomy = join(QIIME2_INTERIM, 'taxonomy.qza'),
-        regions = directory(join(QIIME2_INTERIM, 'regions'))
+        taxonomy = join(QIIME2_INTERIM, 'taxonomy.qza')
     shell:
         'python {params.script} '
         '{input.R1} '
