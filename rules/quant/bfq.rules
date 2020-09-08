@@ -43,8 +43,8 @@ rule bfq_dada2_log_region:
 
 
 def aggr_dada2_regions(wildcards):
-    OUT_REGIONS = checkpoints.qiime2_run_regions.get(**wildcards).output.regions
-    REGIONS = glob_wildcards(join(OUT_REGIONS, '{region}', 'stats.qzv')).region
+    OUT_REGIONS = checkpoints.qiime2_run_regions.get(**wildcards).output.regions_checkpoint
+    REGIONS = glob_wildcards(join(QIIME2_INTERIM, 'regions', '{region}', 'stats.qzv')).region
     file_list = expand(join(BFQ_INTERIM, 'logs', 'dada2', '{region}', 'metadata.tsv'), region=REGIONS)
     return file_list
 

@@ -29,6 +29,7 @@ checkpoint qiime2_run_regions:
         regions = config['db'].get('regions'),
         taxonomy_db = config['db']['reference_db'],
         classifier_dir = CLASSIFIER_DIR,
+        classifier_level = LIBPREP.get('classifier_level','99'),
         filter_region_count = 500,
         min_confidence = 0.8,
         output_dir = join(QIIME2_INTERIM),
@@ -51,7 +52,7 @@ checkpoint qiime2_run_regions:
         taxa_bar = join(QIIME2_INTERIM, 'taxa_bar.qzv'),
         taxa = join(QIIME2_INTERIM, 'taxa.qzv'),
         taxonomy = join(QIIME2_INTERIM, 'taxonomy.qza'),
-        regions = directory(join(QIIME2_INTERIM, 'regions'))
+        regions_checkpoint = temp(join(QIIME2_INTERIM, 'checkpoint.regions'))
     shell:
         'python {params.script} '
         '{input.R1} '
@@ -61,6 +62,7 @@ checkpoint qiime2_run_regions:
         '--libprep {params.libprep} '
         '--taxonomy-db {params.taxonomy_db} '
         '--classifier-dir {params.classifier_dir} '
+        '--classifier-level {params.classifier_level} '
         '--libprep-config {params.libprep_conf} '
         '--filter-region-count {params.filter_region_count} '
         '--min-confidence {params.min_confidence} '
