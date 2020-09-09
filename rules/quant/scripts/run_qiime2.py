@@ -447,6 +447,12 @@ def write_data(table, taxonomy, sequence, adata, biom_table, denoise_viz_region,
             viz = viz.visualization
         viz.save(join(args.output_dir, name))
 
+    if len(adata) > 0:
+        checkpoint_fn = join(args.output_dir, 'checkpoint.regions')
+        with open(checkpoint_fn, 'w') as fh:
+            from pathlib import Path
+            Path(checkpoint_fn).touch()
+
 
 if __name__ == '__main__':
     def write_message(msg):

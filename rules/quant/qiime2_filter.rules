@@ -1,8 +1,6 @@
 """Conservative sample/feature filter 
 """
 
-
-
 rule qiime2_sample_filter:
     input:
         table = join(QIIME2_INTERIM, 'table.qza')

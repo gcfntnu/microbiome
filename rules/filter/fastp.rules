@@ -10,9 +10,11 @@ rule fastp_interleave_fastq:
     input:
         unpack(get_raw_fastq)
     output:
-        pipe(join(FILTER_INTERIM, 'interleaved_fastq', '{sample}.fastq'))
+        join(FILTER_INTERIM, 'interleaved_fastq', '{sample}.fastq')
     params:
         script = srcdir('scripts/interleave_fastq.sh')
+    priority:
+        10
     version:
         lambda wildcards: subprocess.check_output('fastp --version', shell=True)
     shell:
@@ -33,12 +35,10 @@ if PE:
             args = '--low_complexity_filter --overrepresentation_analysis --overrepresentation_sampling 1000 ',
             adapter_arg = '--adapter_sequence {} --adapter_sequence_r2 {} '.format(ADAPTER, ADAPTER2) if ADAPTER else '--detect_adapter_for_pe ',
             kit_args = LIBPREP.get('paired_end',{}).get('fastp', {}).get('params') or ''
-        log:
-            json = 'logs/{sample}/{sample}.fastp.json'
         singularity:
             'docker://' + config['docker']['fastp']
         shell:
-            'cat {input} | fastp --stdin --interleaved_in -o {output.R1} -O {output.R2} -j {output.log_json} -h {output.log_html} --thread {threads} {params} && cp {output.log_json} {log.json} '
+            'cat {input} | fastp --stdin --interleaved_in -o {output.R1} -O {output.R2} -j {output.log_json} -h {output.log_html} --thread {threads} {params} '
 
     rule fastp:
         input:
@@ -54,12 +54,10 @@ if PE:
             kit_args = LIBPREP.get('paired_end',{}).get('fastp', {}).get('params') or ''
         threads:
             3
-        log:
-            json = 'logs/{sample}/{sample}.fastp.json'
         singularity:
             'docker://' + config['docker']['fastp']
         shell:
-            'fastp -i {input.R1} -I {input.R2} -o {output.R1} -O {output.R2} -j {output.log_json} -h {output.log_html} --thread {threads} {params} && cp {output.log_json} {log.json} '
+            'fastp -i {input.R1} -I {input.R2} -o {output.R1} -O {output.R2} -j {output.log_json} -h {output.log_html} --thread {threads} {params} '
 
     rule fastp_join_skip:
         input:
@@ -73,12 +71,10 @@ if PE:
             3
         params:
             args = '--overrepresentation_analysis --overrepresentation_sampling 10000 -A -Q -L -G '
-        log:
-            json = 'logs/{sample}/fastp.json'
         singularity:
             'docker://quay.io/biocontainers/fastp:0.19.7--hdbcaa40_0'
         shell:
-            'cat {input} | fastp --stdin --interleaved_in -o {output.R1} -O {output.R2} -j {output.log_json} -h {output.log_html} --thread {threads} {params}  && cp {output.log_json} {log.json} '
+            'cat {input} | fastp --stdin --interleaved_in -o {output.R1} -O {output.R2} -j {output.log_json} -h {output.log_html} --thread {threads} {params} '
             
     rule fastp_skip:
         input:
@@ -89,16 +85,13 @@ if PE:
             log_html = join(FILTER_INTERIM, 'fastq', 'trimmed', 'fastp', 'qc', '{sample}.html'),
             log_json = join(FILTER_INTERIM, 'fastq', 'trimmed', 'fastp', 'qc', '{sample}.json')
         params:
-        params:
             args = '--overrepresentation_analysis --overrepresentation_sampling 10000 -A -Q -L -G ',
         threads:
             3
-        log:
-            json = 'logs/{sample}/{sample}.fastp.json'
         singularity:
             'docker://' + config['docker']['fastp']
         shell:
-            'fastp -i {input.R1} -I {input.R2} -o {output.R1} -O {output.R2} -j {output.log_json} -h {output.log_html} --thread {threads} {params} && cp {output.log_json} {log.json} '
+            'fastp -i {input.R1} -I {input.R2} -o {output.R1} -O {output.R2} -j {output.log_json} -h {output.log_html} --thread {threads} {params} '
 
 else:
     rule fastp_join:
@@ -114,12 +107,10 @@ else:
             args = '--low_complexity_filter --overrepresentation_analysis --overrepresentation_sampling 10000 ',
             adapter_arg = '--adapter_sequence {}'.format(ADAPTER) if ADAPTER else '',
             kit_args = LIBPREP.get('single_end',{}).get('fastp', {}).get('params') or ''
-        log:
-            json = 'logs/{sample}/{sample}.fastp.json'
         singularity:
             'docker://' + config['docker']['fastp']
         shell:
-            ' zcat {input} | fastp --stdin -o {output.R1} -j {output.log_json} -h {output.log_html} --thread {threads} {params} && cp {output.log_json} {log.json} '
+            ' zcat {input} | fastp --stdin -o {output.R1} -j {output.log_json} -h {output.log_html} --thread {threads} {params}'
 
     rule fastp:
         input:
@@ -134,12 +125,10 @@ else:
             args = '--low_complexity_filter --overrepresentation_analysis --overrepresentation_sampling 10000 ',
             adapter_arg = '--adapter_sequence {}'.format(ADAPTER) if ADAPTER else '',
             kit_args = LIBPREP.get('single_end',{}).get('fastp', {}).get('params') or ''
-        log:
-            json = 'logs/{sample}/{sample}.fastp.json'
         singularity:
             'docker://' + config['docker']['fastp']
         shell:
-            'fastp -i {input.R1} -o {output.R1} -j {output.log_json} -h {output.log_html} --thread {threads} {params} && cp {output.log_json} {log.json} '
+            'fastp -i {input.R1} -o {output.R1} -j {output.log_json} -h {output.log_html} --thread {threads} {params} '
             
     rule fastp_join_skip:
         input:
@@ -152,8 +141,6 @@ else:
             3        
         params:
             args = '--overrepresentation_analysis --overrepresentation_sampling 10000 -A -Q -L '
-        log:
-            json = 'logs/{sample}/{sample}.fastp.json'
         singularity:
             'docker://' + config['docker']['fastp']
         shell:
@@ -175,4 +162,14 @@ else:
         singularity:
             'docker://' + config['docker']['fastp']
         shell:
-            'fastp -i {input.R1} -o {output.R1} -j {output.log_json} -h {output.log_html} --thread {threads} {params} && cp {output.log_json} {log.json} ' 
+            'fastp -i {input.R1} -o {output.R1} -j {output.log_json} -h {output.log_html} --thread {threads} {params} ' 
+
+
+rule fastp_all:
+    input:
+        R1 = expand(join(FILTER_INTERIM, 'merged_fastq', 'trimmed', 'fastp', '{sample}_R1.fastq'), sample=SAMPLES),
+        R2 = expand(join(FILTER_INTERIM, 'merged_fastq', 'trimmed', 'fastp', '{sample}_R2.fastq'), sample=SAMPLES)
+
+rule fastp_test:
+    input:
+        expand(join(FILTER_INTERIM, 'interleaved_fastq', '{sample}.fastq'), sample=SAMPLES)

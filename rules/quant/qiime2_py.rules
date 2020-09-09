@@ -52,7 +52,7 @@ checkpoint qiime2_run_regions:
         taxa_bar = join(QIIME2_INTERIM, 'taxa_bar.qzv'),
         taxa = join(QIIME2_INTERIM, 'taxa.qzv'),
         taxonomy = join(QIIME2_INTERIM, 'taxonomy.qza'),
-        regions = directory(join(QIIME2_INTERIM, 'regions'))
+        regions_checkpoint = temp(join(QIIME2_INTERIM, 'checkpoint.regions'))
     shell:
         'python {params.script} '
         '{input.R1} '
@@ -106,6 +106,6 @@ rule qiime2_biom_to_phyloseq:
         script = srcdir('scripts/qiime2_create_physeq.R'),
         db = config['db']['reference_db']
     singularity:
-       'docker://' + config['docker']['qiime2'] 
+       'docker://' + config['docker']['phyloseq'] 
     shell:
         'Rscript {params.script} {input} {output} {params.db}'

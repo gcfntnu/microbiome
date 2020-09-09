@@ -24,11 +24,15 @@ include:
 extra_conf_fn = srcdir('microbiome-seq.config')
 if os.path.exists(extra_conf_fn):
     with open(extra_conf_fn) as fh:
-        c  = yaml.load(fh) or {}
+        c  = yaml.load(fh, Loader=Loader) or {}
         # original config will override extra config on shared items
         update_config2(config, c)
 
-        
+if os.path.exists('models.yaml'):
+    with open('models.yaml') as fh:
+        m  = yaml.load(fh, Loader=Loader) or {}
+        config['models'] = m
+
 if not 'SAMPLES' in locals():
     SAMPLES = list(config.get('samples', {}).keys())
 
