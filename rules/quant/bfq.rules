@@ -51,9 +51,9 @@ def aggr_dada2_regions(wildcards):
 
 rule bfq_dada2_log:
     input:
-       aggr_dada2_regions,
+        aggr_dada2_regions,
     output:
-        temp(touch(join(BFQ_INTERIM, 'aggr.done')))
+        touch(join(BFQ_INTERIM, 'aggr.done'))
 
 
 rule bfq_rpca:

@@ -52,7 +52,7 @@ checkpoint qiime2_run_regions:
         taxa_bar = join(QIIME2_INTERIM, 'taxa_bar.qzv'),
         taxa = join(QIIME2_INTERIM, 'taxa.qzv'),
         taxonomy = join(QIIME2_INTERIM, 'taxonomy.qza'),
-        regions_checkpoint = temp(join(QIIME2_INTERIM, 'checkpoint.regions'))
+        regions_checkpoint = join(QIIME2_INTERIM, 'checkpoint.regions')
     shell:
         'python {params.script} '
         '{input.R1} '
