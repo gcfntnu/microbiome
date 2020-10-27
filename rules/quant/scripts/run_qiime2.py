@@ -39,6 +39,11 @@ def available_primers(libprep_conf):
                 primers[libprep_name][region] = seq
     return primers
 
+def dada2_denoise_params(libprep_conf):
+    with open(libprep_conf) as fh:
+        c = yaml.load(fh, Loader=Loader)
+    return c.get('QIAseq 16S ITS Region Panels',{}).get('qiime2_dada2', {}).get('denoise', {}).get('params',{})
+
 def available_classifiers(classifier_dir, level='99'):
     available = []
     for fn in os.listdir(classifier_dir):
@@ -100,10 +105,10 @@ def cutadapt_worker(fname, regions, primers):
 
 def seqkit_worker(fname, region):
     """split fastq files into regions by matching fastq header
-    
+
     Region header is identified by region=, e.g region=V1V2.
     This function requires seqkit installed (tested with version 0.12)
-    
+
     """
     sample = basename(fname).split('_R1.fastq')[0]
 
@@ -140,7 +145,7 @@ def import_data_worker(manifest_fn):
     cmd = cmd.format(manifest_fn, output_fn)
     print(cmd)
     subprocess.check_call(cmd, shell=True)
-    
+
     #return Artifact.import_data('SampleData[PairedEndSequencesWithQuality]', manifest_fn,
     #                            view_type='PairedEndFastqManifestPhred33V2')
 
@@ -173,7 +178,7 @@ def demultiplex_manifests(fastq_files, primers, regions=None, split_on_header=Tr
     adata = {}
     with mp.Pool(threads) as pool:
         pool.map(import_data_worker, manifest_filenames.values())
-        
+
     for r, fn in manifest_filenames.items():
         print('importing data ({}) from {}'.format(r, fn))
         adata[r] = Artifact.load(fn.split('_')[0] + '.qza')
@@ -300,7 +305,7 @@ def merge_data(tables, taxas, sequences, samples):
 def filter_features(table, taxonomy, sequence, db, min_confidence):
     """Filter out features without phylum classification, low confidence or matching mitochondria/chloroplast.
     """
-    T = table.merged_table.view(pd.DataFrame)  
+    T = table.merged_table.view(pd.DataFrame)
     X = taxonomy.merged_data.view(pd.DataFrame)
     S = sequence.merged_data.view(pd.Series)
 
@@ -321,7 +326,7 @@ def filter_features(table, taxonomy, sequence, db, min_confidence):
     else:
         print('ERROR: db not valid!')
         sys.exit(-1)
-        
+
     out = (X.Confidence.astype('d') < min_confidence) | \
           X.Taxon.str.contains('chloroplast', flags=re.IGNORECASE) | \
           X.Taxon.str.contains('mitochondria', flags=re.IGNORECASE) | \
@@ -330,11 +335,11 @@ def filter_features(table, taxonomy, sequence, db, min_confidence):
 
     print("Before filtering: {} features".format(X.shape[0]))
     print("After filtering: {} features".format(sum(keep)))
-    
+
     table = Artifact.import_data('FeatureTable[Frequency]', T.loc[:,keep] )
     taxonomy = Artifact.import_data('FeatureData[Taxonomy]', X[keep])
     sequence = Artifact.import_data('FeatureData[Sequence]', S[keep])
-    
+
     return table, taxonomy, sequence
 
 def summary_data(table, taxonomy, sequence, samples):
@@ -365,11 +370,11 @@ def create_biom(table, taxonomy, sequence, features_meta=None, samples_meta=None
     FEATURES = taxonomy.view(pd.DataFrame)
     FEATURES.columns = ['taxonomy', 'confidence']
     tax_table = FEATURES.taxonomy.str.split(';', expand=True)
-    
+
     md_taxa = FEATURES.to_dict(orient='index')
     for k, v in md_taxa.items():
         v['taxonomy'] = list(tax_table.loc[k,:])
-        
+
     T.add_metadata(md_taxa, axis='observation')
     if samples_meta:
         SAMPLES = samples_meta.to_dataframe()
@@ -403,13 +408,13 @@ def write_data(table, taxonomy, sequence, adata, biom_table, denoise_viz_region,
     table.save(join(args.output_dir, 'table'))
     taxonomy.save(join(args.output_dir, 'taxonomy'))
     sequence.save(join(args.output_dir, 'sequence'))
-    
+
 
     with open(join(args.output_dir, 'table.biom'), 'w') as fh:
         biom_table.to_json('GCF qiime2 pipeline', fh)
     with open(join(args.output_dir, 'table.tsv'), 'w') as fh:
         fh.write(biom_table.to_tsv())
-        
+
     samples = biom_table.metadata_to_dataframe('sample')
     if samples is not None:
         with open(join(args.output_dir, 'sample_info.tsv'), 'w') as fh:
@@ -479,13 +484,13 @@ if __name__ == '__main__':
         available = ', '.join(PRIMERS.keys())
         msg = 'asked for: {}. Available libprep options: {}'.format(args.libprep, available)
         raise ValueError(msg)
-    
+
     if args.regions is None or args.regions == 'None':
         if regions:
             args.regions = regions
         else:
             raise ValueError('Failed to identify correctly named regions (V* / ITS*)')
-                
+
     else:
         args.regions = args.regions.split(',')
         for r in args.regions:
@@ -507,10 +512,12 @@ if __name__ == '__main__':
         if not k in counts:
             del adata[k]
     write_message('completed read count')
-            
+
+
+    DADA2_PARAMS = dada2_denoise_params(args.libprep_config)
     # denoise dada2
     write_message('starting denoising (dada2)')
-    tables, sequences, stats = denoise_dada2(adata, threads=args.threads)
+    tables, sequences, stats = denoise_dada2(adata, threads=args.threads, **DADA2_PARAMS)
     write_message('completed denoising (dada2)')
 
     write_message('starting summary of dada2')
@@ -527,12 +534,12 @@ if __name__ == '__main__':
     write_message('merging data')
     table, taxonomy, sequence, meta_region = merge_data(tables, taxas, sequences, samples)
     write_message('merging completed')
-    
+
     # filter features
     write_message('filtering features')
     table, taxonomy, sequence = filter_features(table, taxonomy, sequence, db=args.taxonomy_db, min_confidence=args.min_confidence)
     write_message('filtering features completed')
-    
+
     # table summaries
     write_message('table summaries')
     summary = summary_data(table, taxonomy, sequence, samples)
@@ -541,18 +548,18 @@ if __name__ == '__main__':
     write_message('create biom')
     biom_table = create_biom(table, taxonomy, sequence, features_meta=meta_region, samples_meta=samples)
     write_message('create biom completed')
-    
+
     # diversity
     # diversity_region = calc_diversity_region(tables, sample_meta=samples, max_depth=5000)
     write_message('writing files to disk')
     write_data(table, taxonomy, sequence, adata, biom_table, denoise_viz_region, taxa_viz_region, summary)
     write_message('completed writing files to disk')
-    
+
     # phylogenetic tree
     if args.build_tree:
         write_message('building phylogenetic tree')
         tree = build_phylogenetic_tree(sequence, threads=args.threads)
         tree.rooted_tree.save(join(args.output_dir, 'tree'))
         write_message('completed phylogenetic tree')
-        
+
     write_message('run_qiime2 completed!')
