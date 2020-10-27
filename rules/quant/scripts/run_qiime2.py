@@ -39,10 +39,10 @@ def available_primers(libprep_conf):
                 primers[libprep_name][region] = seq
     return primers
 
-def dada2_denoise_params(libprep_conf):
+def dada2_denoise_params(libprep_conf, libprep):
     with open(libprep_conf) as fh:
         c = yaml.load(fh, Loader=Loader)
-    return c.get('QIAseq 16S ITS Region Panels',{}).get('qiime2_dada2', {}).get('denoise', {}).get('params',{})
+    return c.get(libprep,{}).get('qiime2_dada2', {}).get('denoise', {}).get('params',{})
 
 def available_classifiers(classifier_dir, level='99'):
     available = []
@@ -514,7 +514,7 @@ if __name__ == '__main__':
     write_message('completed read count')
 
 
-    DADA2_PARAMS = dada2_denoise_params(args.libprep_config)
+    DADA2_PARAMS = dada2_denoise_params(args.libprep_config, args.libprep)
     # denoise dada2
     write_message('starting denoising (dada2)')
     tables, sequences, stats = denoise_dada2(adata, threads=args.threads, **DADA2_PARAMS)
