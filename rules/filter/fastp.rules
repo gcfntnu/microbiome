@@ -32,7 +32,7 @@ if PE:
         threads:
             3
         params:
-            args = '--low_complexity_filter --overrepresentation_analysis --overrepresentation_sampling 1000 ',
+            args = '--low_complexity_filter --overrepresentation_analysis --overrepresentation_sampling 1000 --n_base_limit 0 ',
             adapter_arg = '--adapter_sequence {} --adapter_sequence_r2 {} '.format(ADAPTER, ADAPTER2) if ADAPTER else '--detect_adapter_for_pe ',
             kit_args = LIBPREP.get('paired_end',{}).get('fastp', {}).get('params') or ''
         singularity:
@@ -49,7 +49,7 @@ if PE:
             log_html = join(FILTER_INTERIM, 'fastq', 'trimmed', 'fastp', 'qc', '{sample}.html'),
             log_json = join(FILTER_INTERIM, 'fastq', 'trimmed', 'fastp', 'qc', '{sample}.json')
         params:
-            args = '--low_complexity_filter --overrepresentation_analysis --overrepresentation_sampling 10000 ',
+            args = '--low_complexity_filter --overrepresentation_analysis --overrepresentation_sampling 10000 --n_base_limit 0 ',
             adapter_arg = '--adapter_sequence {} --adapter_sequence_r2 {} '.format(ADAPTER, ADAPTER2) if ADAPTER else '--detect_adapter_for_pe ',
             kit_args = LIBPREP.get('paired_end',{}).get('fastp', {}).get('params') or ''
         threads:
@@ -70,7 +70,7 @@ if PE:
         threads:
             3
         params:
-            args = '--overrepresentation_analysis --overrepresentation_sampling 10000 -A -Q -L -G '
+            args = '--overrepresentation_analysis --overrepresentation_sampling 10000 -A -Q -L -G --n_base_limit 0'
         singularity:
             'docker://quay.io/biocontainers/fastp:0.19.7--hdbcaa40_0'
         shell:
@@ -85,7 +85,7 @@ if PE:
             log_html = join(FILTER_INTERIM, 'fastq', 'trimmed', 'fastp', 'qc', '{sample}.html'),
             log_json = join(FILTER_INTERIM, 'fastq', 'trimmed', 'fastp', 'qc', '{sample}.json')
         params:
-            args = '--overrepresentation_analysis --overrepresentation_sampling 10000 -A -Q -L -G ',
+            args = '--overrepresentation_analysis --overrepresentation_sampling 10000 -A -Q -L -G --n_base_limit 0 ',
         threads:
             3
         singularity:
