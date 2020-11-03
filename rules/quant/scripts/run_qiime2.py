@@ -210,7 +210,7 @@ def sequence_counts(adata, min_count=200000):
 
 
 def denoise_dada2(adata, trunc_len_f=0, trunc_len_r=0, trim_left_f=0, trim_left_r=0, max_ee_f=6.0, max_ee_r=6.0, trunc_q=2,
-                  min_fold_parent_over_abundance=1.0, threads=4):
+                  min_fold_parent_over_abundance=1.0, threads=4, pooling_method='pseudo'):
     """
     """
     tables, seqs, stats = {}, {}, {}
@@ -219,9 +219,9 @@ def denoise_dada2(adata, trunc_len_f=0, trunc_len_r=0, trim_left_f=0, trim_left_
         try:
             res = dada2.methods.denoise_paired(data, trunc_len_f=trunc_len_f, trunc_len_r=trunc_len_r,
                                                trim_left_f=trim_left_f, trim_left_r=trim_left_r,
-                                               max_ee_f=max_ee_f, max_ee_r=max_ee_r,
+                                               max_ee_f=max_ee_f, max_ee_r=max_ee_r, trunq_q2=trunc_q2,
                                                min_fold_parent_over_abundance=min_fold_parent_over_abundance,
-                                               n_threads=threads, n_reads_learn=1000000, hashed_feature_ids=True)
+                                               n_threads=threads, n_reads_learn=1000000, hashed_feature_ids=True, pooling_method=pooling_method)
             tables[region], seqs[region], stats[region]  = res
         except Exception as inst:
             print('skipping ' + region)
