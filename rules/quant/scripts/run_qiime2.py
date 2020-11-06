@@ -219,9 +219,9 @@ def denoise_dada2(adata, trunc_len_f=0, trunc_len_r=0, trim_left_f=0, trim_left_
         try:
             res = dada2.methods.denoise_paired(data, trunc_len_f=trunc_len_f, trunc_len_r=trunc_len_r,
                                                trim_left_f=trim_left_f, trim_left_r=trim_left_r,
-                                               max_ee_f=max_ee_f, max_ee_r=max_ee_r, trunq_q2=trunc_q2,
+                                               max_ee_f=max_ee_f, max_ee_r=max_ee_r, trunc_q=trunc_q,
                                                min_fold_parent_over_abundance=min_fold_parent_over_abundance,
-                                               n_threads=threads, n_reads_learn=1000000, hashed_feature_ids=True, pooling_method=pooling_method)
+                                               n_threads=threads, n_reads_learn=1000000, hashed_feature_ids=True)
             tables[region], seqs[region], stats[region]  = res
         except Exception as inst:
             print('skipping ' + region)
