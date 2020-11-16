@@ -5,9 +5,7 @@ import glob
 import os
 
 
-BFQ_INTERIM = join(INTERIM_DIR, 'microbiome', 'bfq')
-
-rule bfq_taxonomy_log:
+rule bfq_level2_taxonomy_log:
     input:
         viz = join(QIIME2_INTERIM, 'taxa_bar.qzv')
     params:
@@ -27,7 +25,7 @@ rule bfq_taxonomy_log:
     shell:
         'qiime tools export --input-path {input.viz} --output-path {params.outdir}'
 
-rule bfq_dada2_log_region:
+rule bfq_level2_dada2_log_region:
     input:
         join(QIIME2_INTERIM, 'regions', '{region}', 'stats.qzv')
     params:
@@ -49,14 +47,14 @@ def aggr_dada2_regions(wildcards):
     return file_list
 
 
-rule bfq_dada2_log:
+rule bfq_level2_dada2_log:
     input:
         aggr_dada2_regions,
     output:
         touch(join(BFQ_INTERIM, 'aggr.done'))
 
 
-rule bfq_rpca:
+rule bfq_level2_rpca:
     input:
         join(QIIME2_INTERIM, 'diversity', 'metrics', 'deicode_rpca_results.qza')
     output:
@@ -71,7 +69,7 @@ rule bfq_rpca:
         'qiime tools export --input-path {input} --output-path {params.outdir}'   
 
 
-rule bfq_rpca_log:
+rule bfq_level2_rpca_log:
     input:
         ord = join(BFQ_INTERIM, 'logs', 'deicode', 'ordination.txt'),
         sample_info = join(QIIME2_INTERIM, 'sample_info.tsv')
@@ -84,7 +82,7 @@ rule bfq_rpca_log:
         cat {input.sample_info} >>  {output}
         """
         
-rule bfq_exprs:
+rule bfq_level2_exprs:
     input:
         physeq = join(QIIME2_INTERIM, 'physeq.rds'),
         biom = join(QIIME2_INTERIM, 'table.biom'),
@@ -107,7 +105,8 @@ rule bfq_exprs:
         for src, dst  in zip(input, output):
             shell('ln -sr {src} {dst}')
 
-rule bfq_qiime2_data:
+
+rule bfq_level2_qiime2_data:
     input:
         rules.qiime2_diversity_core_metrics.output,
         rules.qiime2_diversity_alpha_rarefaction.output,
@@ -140,10 +139,10 @@ rule bfq_qiime2_data:
             shell('ln -sr {src} {dst}')
 
             
-rule bfq_all:
+rule bfq_level2_all:
     input:
-        rules.bfq_exprs.output,
-        rules.bfq_taxonomy_log.output,
-        rules.bfq_dada2_log.output,
-        rules.bfq_rpca_log.output,
-        rules.bfq_qiime2_data.output,
+        rules.bfq_level2_exprs.output,
+        rules.bfq_level2_taxonomy_log.output,
+        rules.bfq_level2_dada2_log.output,
+        rules.bfq_level2_rpca_log.output,
+        rules.bfq_level2_qiime2_data.output
