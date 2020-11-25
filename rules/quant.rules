@@ -16,9 +16,6 @@ include:
 include:
     'quant/qiime2_picrust.rules'
 
-include:
-    'quant/bfq.rules'
-
 rule qiime2_quant_all:
     input:
         join(QUANT_INTERIM, 'qiime2', config['db']['reference_db'].lower(), 'physeq.rds')
