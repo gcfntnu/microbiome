@@ -1,0 +1,5 @@
+WorkflowError in line 15 of /home/geiramh/Projects/github-actions/microbiome/.tests/src/gcfdb/utils.py:
+Expecting Snakemake version 5.10.0 or higher.
+  File "/home/geiramh/Projects/github-actions/microbiome/.tests/Snakefile", line 7, in <module>
+  File "/home/geiramh/Projects/github-actions/microbiome/microbiome-seq.sm", line 22, in <module>
+  File "/home/geiramh/Projects/github-actions/microbiome/.tests/src/gcfdb/utils.py", line 15, in <module>

@@ -1,0 +1,4 @@
+WorkflowError in line 22 of /home/geiramh/Projects/github-actions/microbiome/microbiome-seq.sm:
+Failed to open /home/geiramh/Projects/gcfdb/utils.py.
+  File "/home/geiramh/Projects/github-actions/microbiome/.tests/Snakefile", line 7, in <module>
+  File "/home/geiramh/Projects/github-actions/microbiome/microbiome-seq.sm", line 22, in <module>
