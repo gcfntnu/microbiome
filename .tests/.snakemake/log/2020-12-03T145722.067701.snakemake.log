@@ -1,5 +1,0 @@
-FileNotFoundError in line 84 of /home/geiramh/Projects/gcfdb/utils.py:
-[Errno 2] No such file or directory: '/home/geiramh/Projects/gcfdb/docker.config'
-  File "/home/geiramh/Projects/github-actions/microbiome/.tests/Snakefile", line 7, in <module>
-  File "/home/geiramh/Projects/github-actions/microbiome/microbiome-seq.sm", line 22, in <module>
-  File "/home/geiramh/Projects/gcfdb/utils.py", line 84, in <module>
